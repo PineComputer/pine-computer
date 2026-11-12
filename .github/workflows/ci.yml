@@ -36,3 +36,21 @@ jobs:
       - name: Build the DeepSeek Harness plugin, which bundles the core
         working-directory: plugins/deepseek-harness
         run: npm ci && npm run build
+
+  examples:
+    name: Build ${{ matrix.example }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [starter, tavus-video-agent, drama-studio, among-minds]
+    defaults:
+      run:
+        working-directory: examples/${{ matrix.example }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
