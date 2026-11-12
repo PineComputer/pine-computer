@@ -9,7 +9,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { log } from "../core/home.js";
 import { newThread, readThread, saveThread, type ThreadRecord } from "../core/thread.js";
-import { fileLines, jobOf, report, running, start, type Where } from "../jobs.js";
+import { fileLines, jobFor, report, running, start, type Where } from "../jobs.js";
 import { ensureViewer, viewerUrl } from "../viewer/server.js";
 
 const COMPUTER = process.env.PINE_COMPUTER || "default";
@@ -45,7 +45,7 @@ export function mcpServer(where: Where): McpServer {
       if (id) {
         thread = await readThread(id);
         if (!thread) return text(`No thread ${id}. Leave the thread out to start a new one.`);
-        const busy = jobOf(id);
+        const busy = await jobFor(id);
         if (running(busy)) return text(`This thread's job is still running. Call computer_wait, or computer_cancel first.\n\nthread: ${id}`);
       } else {
         thread = newThread(COMPUTER, where.cwd);
@@ -68,7 +68,7 @@ export function mcpServer(where: Where): McpServer {
       },
     },
     async ({ thread: id, wait_seconds }, extra) => {
-      const job = jobOf(id);
+      const job = await jobFor(id);
       if (job) return text(await report(job, wait_seconds ?? 240, { where, progress: progress(extra) }));
       const thread = await readThread(id);
       const last = thread?.history.at(-1);
@@ -85,7 +85,7 @@ export function mcpServer(where: Where): McpServer {
       inputSchema: { thread: z.string() },
     },
     async ({ thread: id }) => {
-      const job = jobOf(id);
+      const job = await jobFor(id);
       if (!running(job)) return text(`Nothing is running on thread ${id}.`);
       job.controller.abort();
       return text(await report(job, 30, { where }));

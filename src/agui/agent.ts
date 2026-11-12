@@ -15,8 +15,8 @@ import { EventType, type BaseEvent, type Message, type RunAgentInput } from "@ag
 import { EventEncoder } from "@ag-ui/encoder";
 import type { Request, RequestHandler, Response } from "express";
 import { log, safe } from "../core/home.js";
-import { own, scoped } from "../core/store.js";
-import { newThread, readThread, saveThread, work, type ThreadRecord } from "../core/thread.js";
+import { own, scoped, store } from "../core/store.js";
+import { newThread, readThread, resume, saveThread, work, type Listener, type Outcome, type ThreadRecord } from "../core/thread.js";
 import { fileUrl, hostedLinks, viewerUrl } from "../viewer/server.js";
 
 const COMPUTER = process.env.PINE_COMPUTER || "default";
@@ -30,7 +30,7 @@ type Step = { op: "begin"; key: string; title: string; kind: string } | { op: "e
 
 /** How a job ended. */
 type End =
-  | { state: string; reply: string; desktop: string; files: { name: string; url: string }[]; cost: number | null }
+  | { state: string; reply: string; desktop: string; files: { name: string; url: string }[]; cost: number | null; turn: string }
   | { error: string; code: "failed" | "error" };
 
 /** A job on the Computer. It belongs to its thread, not to the run that started it. */
@@ -103,15 +103,18 @@ export function aguiHandler(): RequestHandler {
     };
 
     /** Hears a job from where it stands to its end: the steps so far, then each one as it happens. */
-    const follow = async (job: Job) => {
+    const follow = async (job: Job, before = "", after = "") => {
       for (const step of job.steps) show(step);
       job.hear.add(show);
       await job.done;
       job.hear.delete(show);
       if (gone || !job.end) return;
       job.told = true;
-      finish(job.end);
+      if ("turn" in job.end) await store().set(["heard", id], { turn: job.end.turn });
+      await store().delete(["unheard", id]);
+      finish(job.end, before, after);
     };
+    const away = ["What you gave me earlier ended while you were away. Here is where it stands.\n\n", "\n\nIf your last message was something new, send it again."] as const;
 
     emit({ type: EventType.RUN_STARTED, threadId, runId });
     const beat = setInterval(() => void (gone || res.write(": working\n\n")), KEEPALIVE_MS);
@@ -127,11 +130,22 @@ export function aguiHandler(): RequestHandler {
         // The job ended with nobody listening. This run says how, and stops there: the person hasn't seen
         // the result, or the question, that their message would otherwise be taken as a reply to.
         earlier.told = true;
-        return finish(
-          earlier.end,
-          "error" in earlier.end ? "What you gave me earlier didn't finish: " : "What you gave me earlier ended while you were away. Here is where it stands.\n\n",
-          "\n\nIf your last message was something new, send it again.",
-        );
+        await store().delete(["unheard", id]);
+        if (!(await heard(id, earlier.end))) return finish(earlier.end, "error" in earlier.end ? "What you gave me earlier didn't finish: " : away[0], away[1]);
+      }
+      if (!earlier) {
+        // Nothing in this process: the job may belong to one that restarted, or to another one beside it.
+        const saved = await readThread(id);
+        if (saved?.job) {
+          const desktop = await viewerUrl(COMPUTER, saved.session);
+          say(`Picking up what you gave me earlier. [Watch the computer or take over](${desktop})`);
+          return await follow(start(id, saved, desktop, (on) => resume(saved, { on }) as Promise<Outcome>), "", away[1]);
+        }
+        const unheard = await store().get<End>(["unheard", id]);
+        if (unheard) {
+          await store().delete(["unheard", id]);
+          if (!(await heard(id, unheard))) return finish(unheard, "error" in unheard ? "What you gave me earlier didn't finish: " : away[0], away[1]);
+        }
       }
 
       // OpenBot checks an address by posting a real run and hanging up on the first event. A client that
@@ -147,7 +161,7 @@ export function aguiHandler(): RequestHandler {
       }
       const desktop = await viewerUrl(COMPUTER, thread.session);
       if (!thread.history.length) say(`On it. [Watch the computer or take over](${desktop})`);
-      await follow(start(id, thread, text, files, desktop));
+      await follow(start(id, thread, desktop, (on) => work(thread, text, { files, on })));
     } catch (error) {
       log("ag-ui run failed:", error);
       emit({ type: EventType.RUN_ERROR, message: `The computer couldn't take this on: ${(error as Error).message}`, code: "error" });
@@ -159,7 +173,7 @@ export function aguiHandler(): RequestHandler {
 }
 
 /** Hands the job to the Computer. It runs to its end whether or not anyone is listening. */
-function start(id: string, thread: ThreadRecord, text: string, files: string[], desktop: string): Job {
+function start(id: string, thread: ThreadRecord, desktop: string, run: (on: Listener) => Promise<Outcome>): Job {
   const job: Job = { steps: [], hear: new Set(), done: Promise.resolve(), told: false, desktop };
   const open = new Set<string>();
   const push = (step: Step) => {
@@ -171,30 +185,27 @@ function start(id: string, thread: ThreadRecord, text: string, files: string[], 
   let bridgeStep = 0;
   job.done = (async () => {
     try {
-      const outcome = await work(thread, text, {
-        files,
-        on: {
-          // The bridge's own steps are said once, with no outcome to wait for.
-          step: (t) => {
-            const key = `bridge-${++bridgeStep}`;
-            push({ op: "begin", key, title: t, kind: "bridge" });
-            push({ op: "end", key, result: "Done" });
-          },
-          activity: (a: AgentActivity) => {
-            // A step that takes time arrives running, then again with its outcome; a quick one arrives once.
-            if (!open.has(a.id)) push({ op: "begin", key: a.id, title: a.title, kind: a.kind });
-            if (a.state === "running") return;
-            const page = [a.facts?.page?.title, a.facts?.page?.url].filter(Boolean).join(" — ");
-            push({ op: "end", key: a.id, result: a.state === "completed" ? page || "Done" : `${a.state}${page ? `: ${page}` : ""}` });
-          },
-          progress: () => {},
+      const outcome = await run({
+        // The bridge's own steps are said once, with no outcome to wait for.
+        step: (t) => {
+          const key = `bridge-${++bridgeStep}`;
+          push({ op: "begin", key, title: t, kind: "bridge" });
+          push({ op: "end", key, result: "Done" });
         },
+        activity: (a: AgentActivity) => {
+          // A step that takes time arrives running, then again with its outcome; a quick one arrives once.
+          if (!open.has(a.id)) push({ op: "begin", key: a.id, title: a.title, kind: a.kind });
+          if (a.state === "running") return;
+          const page = [a.facts?.page?.title, a.facts?.page?.url].filter(Boolean).join(" — ");
+          push({ op: "end", key: a.id, result: a.state === "completed" ? page || "Done" : `${a.state}${page ? `: ${page}` : ""}` });
+        },
+        progress: () => {},
       });
       const links = await Promise.all(outcome.files.map(async (f) => ({ name: f.name, url: await fileUrl(thread.id, f.name) })));
       let reply = await hostedLinks(outcome.text, thread.id, outcome.files);
       const unlinked = links.filter((f) => !reply.includes(f.url));
       if (unlinked.length) reply += `\n\nFiles:\n${unlinked.map((f) => `- [${f.name}](${f.url})`).join("\n")}`;
-      job.end = outcome.state === "failed" ? { error: `The computer couldn't finish: ${reply}`, code: "failed" } : { state: outcome.state, reply, desktop, files: links, cost: outcome.cost };
+      job.end = outcome.state === "failed" ? { error: `The computer couldn't finish: ${reply}`, code: "failed" } : { state: outcome.state, reply, desktop, files: links, cost: outcome.cost, turn: outcome.turnId };
     } catch (error) {
       log("ag-ui job failed:", error);
       job.end = { error: `The computer couldn't take this on: ${(error as Error).message}`, code: "error" };
@@ -202,9 +213,20 @@ function start(id: string, thread: ThreadRecord, text: string, files: string[], 
       // A call left unanswered would read as one the client is asked to run.
       for (const key of [...open]) push({ op: "end", key, result: "Not finished" });
     }
+    // Once the runs that were listening have had their turn: an end nobody heard is kept for the next run,
+    // which may reach a process that never held this job.
+    setImmediate(async () => {
+      if (job.told || !job.end || (await heard(id, job.end))) return;
+      await store().set(["unheard", id], job.end).catch((error) => log("keeping an unheard end failed:", error));
+    });
   })();
   jobs.set(scoped(id), job);
   return job;
+}
+
+/** Whether a run has already told the person this end: one on another process, which followed the same job. */
+async function heard(id: string, end: End): Promise<boolean> {
+  return "turn" in end && (await store().get<{ turn: string }>(["heard", id]))?.turn === end.turn;
 }
 
 /** The AG-UI thread's thread, made on its first run. */

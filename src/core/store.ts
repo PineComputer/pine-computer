@@ -133,6 +133,9 @@ const under = (prefix: Key): Store => ({
   lock: async (name, fn) => (await backing()).lock([...prefix, name].join("/"), fn),
 });
 
+/** Opens the store, so a service that can't reach it fails as it starts and not on its first request. */
+export const ready = async () => void (await backing());
+
 /** What this process keeps for itself, whatever the project: the keys its own addresses carry. */
 export const local = under([]);
 

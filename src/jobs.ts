@@ -5,7 +5,7 @@
 
 import path from "node:path";
 import { scoped } from "./core/store.js";
-import { work, type Outcome, type ThreadRecord } from "./core/thread.js";
+import { readThread, resume, work, type Outcome, type ThreadRecord, type WorkOptions } from "./core/thread.js";
 import { fileUrl, hostedLinks, viewerUrl } from "./viewer/server.js";
 
 export interface Job {
@@ -33,15 +33,29 @@ const jobs = new Map<string, Job>();
 export const jobOf = (threadId: string) => jobs.get(scoped(threadId));
 export const running = (job: Job | undefined): job is Job => !!job && !job.outcome && !job.error;
 
+/**
+ * The thread's job: the one this process holds, or the one another process started and left in flight
+ * (it restarted, or the caller reached a different one), which this one then follows to its end.
+ */
+export async function jobFor(threadId: string): Promise<Job | undefined> {
+  const held = jobOf(threadId);
+  if (held) return held;
+  const thread = await readThread(threadId);
+  return thread?.job ? follow(thread, (options) => resume(thread, options) as Promise<Outcome>) : undefined;
+}
+
 export function start(thread: ThreadRecord, task: string, files: string[]): Job {
+  return follow(thread, (options) => work(thread, task, { files, ...options }));
+}
+
+function follow(thread: ThreadRecord, run: (options: Pick<WorkOptions, "on" | "signal">) => Promise<Outcome>): Job {
   const controller = new AbortController();
   const job: Job = { thread, steps: [], controller, done: Promise.resolve() as unknown as Promise<Outcome> };
   const note = (text: string) => {
     job.steps.push(text);
     job.listener?.(text);
   };
-  job.done = work(thread, task, {
-    files,
+  job.done = run({
     signal: controller.signal,
     on: {
       step: note,

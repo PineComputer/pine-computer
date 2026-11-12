@@ -16,7 +16,7 @@ import { agentCard, PineExecutor } from "./a2a/agent.js";
 import { aguiHandler } from "./agui/agent.js";
 import { Client } from "@pinesandbox/computer";
 import { at, log } from "./core/home.js";
-import { inScope, local, projectOf, scoped, type Scope } from "./core/store.js";
+import { inScope, local, projectOf, ready, scoped, type Scope } from "./core/store.js";
 import { mcpServer } from "./mcp/server.js";
 import { handleViewer, hostViewer } from "./viewer/server.js";
 
@@ -66,6 +66,7 @@ function projectFor(key: string): Promise<Scope | null> {
 export async function serve(): Promise<void> {
   const origin = (process.env.PINE_PUBLIC_URL ?? `http://${HOST === "0.0.0.0" ? "127.0.0.1" : HOST}:${PORT}`).replace(/\/+$/, "");
   if (HOSTED && !process.env.PINE_SANDBOX_ENDPOINT) throw new Error("PINE_HOSTED needs PINE_SANDBOX_ENDPOINT: the platform every project's key is for.");
+  await ready();
   const expected = Buffer.from(HOSTED ? "" : await token());
   hostViewer(origin);
 
