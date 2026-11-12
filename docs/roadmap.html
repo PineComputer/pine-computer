@@ -1,0 +1,291 @@
+<title>Pine Computer Showcase Roadmap</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=B612+Mono&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one reading column on the brand's paper ground; a status ledger per track, the status carried by a lamp and a word. */
+:root {
+  --bg: #efefea; --bg-2: #e6e7e1; --bg-raised: #f7f7f3;
+  --fg: #111613; --fg-2: #3a413c; --fg-3: #576059;
+  --rule: #cdd2cb; --accent: #1f6b45; --lamp: #2fd892;
+  --you: #a86f00; --later: #7d867f;
+  --voice: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "B612 Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111613; --bg-2: #171e1a; --bg-raised: #1f2722;
+  --fg: #eef0e8; --fg-2: #a9b2ab; --fg-3: #8a958d;
+  --rule: #2c342f; --accent: #9cc8ae; --lamp: #2fd892;
+  --you: #e8b45a; --later: #66726a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111613; --bg-2: #171e1a; --bg-raised: #1f2722;
+  --fg: #eef0e8; --fg-2: #a9b2ab; --fg-3: #8a958d;
+  --rule: #2c342f; --accent: #9cc8ae; --lamp: #2fd892;
+  --you: #e8b45a; --later: #66726a; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font: 16px/1.55 var(--voice); }
+.page { max-width: 880px; margin: 0 auto; padding-block: 40px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 56px; }
+section { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+h1 { font-size: clamp(30px, 6vw, 44px); line-height: 1.08; font-weight: 700; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h2 { font-size: 24px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+h3 { font-size: 16px; font-weight: 600; margin: 0; }
+p { margin: 0; max-width: 68ch; color: var(--fg-2); }
+p strong, li strong { color: var(--fg); font-weight: 600; }
+.meta { font: 12px/1.4 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-3); }
+.lede { font-size: 18px; color: var(--fg); }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font: 13px var(--mono); background: var(--bg-2); padding: 1px 5px; border-radius: 3px; }
+
+/* the tally */
+.tally { display: flex; flex-wrap: wrap; gap: 8px 28px; padding-block: 16px; border-block: 1px solid var(--rule); }
+.tally div { display: flex; align-items: baseline; gap: 8px; }
+.tally b { font: 28px/1 var(--voice); font-weight: 700; font-variant-numeric: tabular-nums; }
+.bar { display: flex; height: 8px; background: var(--bg-2); border-radius: 4px; overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.bar .b-done { background: var(--accent); } .bar .b-doing { background: var(--lamp); } .bar .b-you { background: var(--you); }
+
+/* status word + lamp */
+.st { font: 12px/1.4 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; color: var(--fg-3); }
+.st::before { content: ""; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--later); flex: none; }
+.done > .st, .st.done { color: var(--accent); } .done > .st::before, .st.done::before { background: var(--accent); border-color: var(--accent); }
+.doing > .st, .st.doing { color: var(--fg); } .doing > .st::before, .st.doing::before { background: var(--lamp); border-color: var(--lamp); }
+.next > .st, .st.next { color: var(--fg); } .next > .st::before, .st.next::before { border-color: var(--fg); }
+.you > .st, .st.you { color: var(--you); } .you > .st::before, .st.you::before { background: var(--you); border-color: var(--you); }
+
+/* ledger */
+.track { display: flex; flex-direction: column; gap: 4px; }
+.track-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; padding-bottom: 8px; border-bottom: 1px solid var(--fg); }
+.ledger { list-style: none; margin: 0; padding: 0; }
+.ledger li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 16px; padding-block: 10px; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.ledger li > div { min-width: 0; }
+.ledger .what { color: var(--fg); font-weight: 500; }
+.ledger .note { color: var(--fg-3); font-size: 14px; }
+@media (max-width: 520px) { .ledger li { grid-template-columns: 1fr; } }
+
+/* tables */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 15px; }
+th { text-align: left; font: 12px/1.4 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-3); font-weight: 400; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--fg); }
+td { padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: top; color: var(--fg-2); }
+td:first-child { color: var(--fg); font-weight: 600; white-space: nowrap; }
+
+.verdict { background: var(--bg-raised); border: 1px solid var(--rule); border-radius: 6px; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 32px; }
+.cols > div { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+ul.plain, ol.plain { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--fg-2); max-width: 68ch; }
+.key { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+</style>
+
+<div class="page">
+
+<header style="display:flex;flex-direction:column;gap:16px">
+  <div class="meta">Pine Computer in other people's agents · updated November 11, 2026</div>
+  <h1>Showcase roadmap</h1>
+  <p class="lede">Pine Computer inside other people's products and agents. The story has three parts: in a product, in an agent app, and as a coworker. This page tracks each showcase, the ways in behind them, and the move into PineSandbox.</p>
+  <div class="tally" id="tally" aria-label="Progress across all items"></div>
+  <div class="bar" id="bar" role="img" aria-label="Share of items done, in progress and waiting on you"></div>
+  <div class="key">
+    <span class="st done">Done</span><span class="st doing">In progress</span><span class="st next">Next</span><span class="st">Later</span><span class="st you">Waiting on you</span>
+  </div>
+</header>
+
+<section>
+  <h2>Which protocol</h2>
+  <div class="verdict">
+    <p class="lede"><strong>Lead with MCP. Keep A2A beside it. Build AG-UI next. Park ACP.</strong></p>
+    <p>No single protocol reaches every app, and the core behind them is already shared, so each extra one is a thin front door. What needs choosing is the order, and what ships around the protocol.</p>
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Protocol</th><th>Pine appears as</th><th>Who it reaches</th><th>Call</th></tr></thead>
+    <tbody>
+      <tr><td>MCP</td><td>A tool the app's own agent calls</td><td>Claude Code, Codex, Cursor, and the tool slot of every coworker app</td><td><strong>Lead.</strong> Widest reach, and the app's thinking stays on the app's model.</td></tr>
+      <tr><td>A2A</td><td>A remote agent with tasks, questions and files</td><td>Agent platforms and frameworks that delegate to other agents</td><td><strong>Keep.</strong> It fits what Pine is: a long job that can stop and ask. Already built.</td></tr>
+      <tr><td>AG-UI</td><td>A bot inside the app, reached by a URL</td><td>CopilotKit OpenBot, OpenDots, and the frameworks AG-UI already covers</td><td><strong>Build next.</strong> The bot shape with no install: OpenBot takes any AG-UI endpoint as a Bot.</td></tr>
+      <tr><td>ACP</td><td>A bot that takes the app's engine slot</td><td>OpenMausBot, nightly OpenBot, Zed</td><td><strong>Park.</strong> Built and proven once. The app treats the engine as its language model, which Pine has to refuse.</td></tr>
+      <tr><td>SDK</td><td>The computer inside your own product</td><td>Products with a backend: Tavus demo, Drama Studio, the starter</td><td><strong>The base.</strong> Everything above runs on the published SDKs.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><strong>The something else is packaging.</strong> A protocol only gets Pine listed. The model still has to choose it, and the person still has to install it. That means a Pine Computer skill: one <code>SKILL.md</code> package that says when to hand work to the computer, shipped with the MCP server. Claude Code, Codex and LobeHub all read the same package. Where an app has its own plugin system, as DeepSeek Harness does, Pine goes in as a plugin for that system, on the same core.</p>
+</section>
+
+<section>
+  <h2>Progress</h2>
+
+  <div class="track">
+    <div class="track-head"><h3>Ways in</h3><span class="meta">pine-computer-bridge</span></div>
+    <ul class="ledger">
+      <li class="done"><span class="st">Done</span><div><div class="what">One core behind every protocol</div><div class="note">Thread = session, message = job, a question ends the turn, files come back, secrets stay out of the model.</div></div></li>
+      <li class="done"><span class="st">Done</span><div><div class="what">MCP, local and over HTTP</div><div class="note">Four tools. Tested on a real Computer.</div></div></li>
+      <li class="done"><span class="st">Done</span><div><div class="what">A2A 1.0 and 0.3</div><div class="note">Streamed steps, a question and its answer on one task, files as artifacts, cancel.</div></div></li>
+      <li class="done"><span class="st">Done</span><div><div class="what">ACP</div><div class="note">Runs inside OpenMausBot.</div></div></li>
+      <li class="done"><span class="st">Done</span><div><div class="what">Desktop pages</div><div class="note">Watch any thread's Computer and take the controls.</div></div></li>
+      <li class="next"><span class="st">Next</span><div><div class="what">AG-UI endpoint</div><div class="note">Served by the same process as MCP and A2A.</div></div></li>
+      <li><span class="st">Later</span><div><div class="what">Hosting for more than one machine</div><div class="note">Tasks that survive a restart, a token per app.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="track">
+    <div class="track-head"><h3>Showcase 1: in a product</h3><span class="meta">on the SDK · leads the story</span></div>
+    <ul class="ledger">
+      <li class="done"><span class="st">Done</span><div><div class="what">Tavus × Pine Computer demo</div><div class="note">A video agent takes the call and the Computer does the portal work, which carries on after the call ends. Built and rehearsed.</div></div></li>
+      <li class="done"><span class="st">Done</span><div><div class="what">Pine Drama Studio</div><div class="note">A short-drama application on Pine Computers, public and open source.</div></div></li>
+      <li class="done"><span class="st">Done</span><div><div class="what">Pine Computer starter</div><div class="note">Next.js app: tasks, desktop handoff, skills, schedules. Public.</div></div></li>
+      <li class="doing"><span class="st">In progress</span><div><div class="what">Tavus film and write-up</div><div class="note">A 24-second film is cut from the recorded call of November 6. Still to do: a cut that reads on a phone, and the page behind the piece.</div></div></li>
+      <li class="next"><span class="st">Next</span><div><div class="what">Drama Studio recorded and written up</div><div class="note">Same form.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="track">
+    <div class="track-head"><h3>Showcase 2: in an agent workspace</h3><span class="meta">skill + MCP · Pine as a tool</span></div>
+    <ul class="ledger">
+      <li class="done"><span class="st">Done</span><div><div class="what">OpenMausBot, Pine as a tool</div><div class="note">MCP. Recorded: a Claude bot hands the job over and relays the question.</div></div></li>
+
+
+      <li class="next"><span class="st">Next</span><div><div class="what">Showcase jobs taken from the Tavus portal and the drama work</div><div class="note">The test jobs so far (a public page, a simple form) are ones a model can do with its own tools. The portal job needs a signed-in computer, and the drama job needs its media tools.</div></div></li>
+      <li class="next"><span class="st">Next</span><div><div class="what">LobeHub</div><div class="note">Its Skill Store takes a skill from GitHub or a URL, and a custom MCP server.</div></div></li>
+
+
+      <li><span class="st">Later</span><div><div class="what">CopilotKit OpenBot, Pine as a tool</div><div class="note">MCP over HTTP, as a custom server in its catalogue.</div></div></li>
+
+
+    </ul>
+  </div>
+
+  <div class="track">
+    <div class="track-head"><h3>Showcase 3: as a coworker</h3><span class="meta">Pine as a bot</span></div>
+    <ul class="ledger">
+      <li class="done"><span class="st">Done</span><div><div class="what">OpenMausBot</div><div class="note">ACP. Recorded: question, thumbs-up, form submitted, desktop shown.</div></div></li>
+      <li class="next"><span class="st">Next</span><div><div class="what">CopilotKit OpenBot</div><div class="note">AG-UI. The second coworker app, and the first with no local install.</div></div></li>
+      <li><span class="st">Later</span><div><div class="what">OpenDots, nightly OpenBot, Zed</div><div class="note">Nightly OpenBot is non-commercial: configuration only, nothing built on it.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="track">
+    <div class="track-head"><h3>Works with</h3><span class="meta">install paths · not gallery pieces</span></div>
+    <ul class="ledger">
+      <li class="done"><span class="st">Done</span><div><div class="what">Claude Code</div><div class="note">MCP, local and over HTTP.</div></div></li>
+      <li class="done"><span class="st">Done</span><div><div class="what">Codex command line</div><div class="note">MCP. GPT-6 Astra handed over a job and got a one-page PDF back.</div></div></li>
+      <li class="next"><span class="st">Next</span><div><div class="what">DeepSeek Harness (dsh)</div><div class="note">A plugin for its own plugin system, not MCP. The first step is reading its plugin interface in the repository.</div></div></li>
+      <li class="next"><span class="st">Next</span><div><div class="what">Codex app and Cursor</div><div class="note">MCP.</div></div></li>
+
+      <li><span class="st">Later</span><div><div class="what">An A2A platform</div><div class="note">Google ADK or an orchestrator, beyond the SDK clients already tested.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="track">
+    <div class="track-head"><h3>The gallery</h3><span class="meta">where the showcases are seen</span></div>
+    <ul class="ledger">
+      <li class="done"><span class="st">Done</span><div><div class="what">What the website has today</div><div class="note">Use cases are illustrated examples of jobs. The gallery is a different thing: real products, recorded. Nothing like it exists yet.</div></div></li>
+      <li class="you"><span class="st">Waiting on you</span><div><div class="what">The gallery concept, for your review on the brand board</div><div class="note">The first key frame is there: the Tavus piece as the lead film, the beats beside it, and the rest of the wall as a ruled list. It passes the brand's house check.</div></div></li>
+      <li class="next"><span class="st">Next</span><div><div class="what">A short film per showcase</div><div class="note">Cut from a real run with the screen kit the films already use. The two recordings made so far are test captures, below this bar.</div></div></li>
+      <li class="doing"><span class="st">In progress</span><div><div class="what">Gallery design on the brand board</div><div class="note">Concept "Showcase" in <code>brand/concepts/showcase</code>. Design is agreed on the board before it reaches the website.</div></div></li>
+      <li><span class="st">Later</span><div><div class="what">Gallery page on the website</div><div class="note">Its own page, in its own pull request, once the board design is agreed.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="track">
+    <div class="track-head"><h3>Packaging</h3><span class="meta">what makes an app's agent pick Pine</span></div>
+    <ul class="ledger">
+      <li class="next"><span class="st">Next</span><div><div class="what">The Pine Computer skill</div><div class="note">One <code>SKILL.md</code> package: when to hand work to the computer, how to pass on its questions, how to share the desktop link. Today that is one line pasted into each bot's instructions.</div></div></li>
+      <li class="next"><span class="st">Next</span><div><div class="what">Install paths for Claude Code, Codex and LobeHub</div><div class="note">The same skill and server, with one install line or one store entry per app.</div></div></li>
+      <li><span class="st">Later</span><div><div class="what">Published command</div><div class="note">So <code>npx pine-computer</code> works without a checkout.</div></div></li>
+      <li><span class="st">Later</span><div><div class="what">Sign-in instead of pasting a project key</div><div class="note">Needs Console work in PineSandbox.</div></div></li>
+      <li><span class="st">Later</span><div><div class="what">An endpoint Pine hosts</div><div class="note">One URL for MCP and A2A, so nobody runs a process.</div></div></li>
+      <li><span class="st">Later</span><div><div class="what">A page agents can read to set themselves up</div><div class="note">A docs index for agents and a paste-in setup prompt.</div></div></li>
+    </ul>
+  </div>
+
+  <div class="track">
+    <div class="track-head"><h3>Into PineSandbox</h3><span class="meta">the main repository</span></div>
+    <ul class="ledger">
+      <li class="done"><span class="st">Done</span><div><div class="what">Checked what the repository has today</div><div class="note">Four server SDKs and the Web SDK. No MCP, A2A or ACP anywhere, so this is new ground.</div></div></li>
+      <li class="doing"><span class="st">In progress</span><div><div class="what">Placement plan</div><div class="note">A package beside the TypeScript SDK, an entry in the SDK list, a docs page.</div></div></li>
+      <li class="you"><span class="st">Waiting on you</span><div><div class="what">Go-ahead for a branch and pull request</div><div class="note">After you've read the placement plan.</div></div></li>
+      <li><span class="st">Later</span><div><div class="what">Package, docs page and first release</div><div class="note">MCP and A2A move in. ACP stays in the bridge until a second app runs it.</div></div></li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>What to learn</h2>
+  <div class="cols">
+    <div>
+      <h3>Inkbox</h3>
+      <p>A cloud computer plus email, phone and messaging for agents. Close to Pine's ground, and strong on getting installed.</p>
+      <ul class="plain">
+        <li><strong>It sells per app, not per protocol.</strong> The homepage opens with a picker of agent apps, each with one install line. MCP, the skill and the command line sit underneath.</li>
+        <li><strong>The agent signs itself up.</strong> A paste-in prompt sends the agent to a signup guide and a docs index written for agents.</li>
+
+        <li><strong>The agent is reachable.</strong> It wakes on a message or a schedule and sleeps when idle. Pine has the lasting computer; a job that starts from an email or a schedule would show it.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>LobeHub</h3>
+      <p>An agent workspace with a Skill Store: built-in capabilities, community skills, and MCP integrations side by side.</p>
+      <ul class="plain">
+        <li><strong>The skill is the unit.</strong> A <code>SKILL.md</code> package installs from the store, GitHub, a URL or a ZIP, and can say how to use an MCP server.</li>
+        <li><strong>One package travels.</strong> The same skill format is read by Claude Code and Codex, so one Pine skill covers all three.</li>
+        <li><strong>A public listing.</strong> Each skill gets a page with an install prompt for agents and command-line steps.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>CopilotKit OpenBot</h3>
+      <p>A workspace for AI coworkers, from the makers of AG-UI. It names its slots plainly: AG-UI connects agents, MCP connects tools.</p>
+      <ul class="plain">
+        <li><strong>A bot is a URL.</strong> Any AG-UI endpoint can be a Bot, with an optional authorization header. Simpler than ACP, which needs a process on the person's machine.</li>
+        <li><strong>The computer slot is the wrong door.</strong> Its pluggable computer provider expects the app's own model to drive the machine. Pine goes in as a bot or a tool.</li>
+        <li><strong>One small adapter per framework.</strong> Its repository carries a folder for each agent framework. Pine's showcases should be as small and as many.</li>
+        <li><strong>Too many tools hurts.</strong> One app approval gave a bot 239 tools. Pine's four tools, one of which takes the whole job in words, is the right size.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Waiting on you</h2>
+  <ul class="ledger">
+    <li class="you"><span class="st">Decide</span><div><div class="what">Which showcase leads</div><div class="note">Set: Tavus and Drama lead the story. Next is the skill in Claude Code, Codex and LobeHub, then OpenBot over AG-UI.</div></div></li>
+    <li class="you"><span class="st">Decide</span><div><div class="what">Who owns the hosted endpoint</div><div class="note">It needs a sign-in in the Console, so it's PineSandbox work rather than bridge work.</div></div></li>
+    <li class="you"><span class="st">Approve</span><div><div class="what">A branch and pull request in PineSandbox</div><div class="note">Once the placement plan is in front of you.</div></div></li>
+    <li class="you"><span class="st">Approve</span><div><div class="what">Correcting claim 71 in the narrative repository</div><div class="note">It says developers can build their own agent on the computer controls. The product docs say Pine's agent or a person drives.</div></div></li>
+    <li class="you"><span class="st">Approve</span><div><div class="what">An issue upstream on OpenMausBot</div><div class="note">A switch so a custom engine can skip memory upkeep.</div></div></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Order of work</h2>
+  <ol class="plain">
+    <li><strong>The Pine Computer skill,</strong> shipped with the MCP server and installed in Claude Code, Codex and LobeHub. DeepSeek Harness gets a plugin of its own.</li>
+    <li><strong>The Tavus and Drama showcases,</strong> recorded and written up, with their jobs reused for the agent-app recordings.</li>
+    <li><strong>The gallery,</strong> one card per showcase, designed on the brand board and then built on the website.</li>
+    <li><strong>The placement plan for PineSandbox,</strong> for your read.</li>
+    <li><strong>The AG-UI endpoint,</strong> then Pine as a bot in CopilotKit OpenBot.</li>
+    <li><strong>MCP and A2A into PineSandbox,</strong> with a docs page and a release.</li>
+    <li><strong>The hosted endpoint and sign-in,</strong> so nobody has to run a process.</li>
+  </ol>
+</section>
+
+</div>
+
+<script>
+(function () {
+  var items = document.querySelectorAll('.track .ledger li');
+  var n = { done: 0, doing: 0, next: 0, you: 0, later: 0 };
+  items.forEach(function (li) {
+    var k = ['done', 'doing', 'next', 'you'].find(function (c) { return li.classList.contains(c); }) || 'later';
+    n[k]++;
+  });
+  var total = items.length;
+  var rows = [['done', 'done'], ['doing', 'in progress'], ['next', 'next'], ['later', 'later'], ['you', 'waiting on you']];
+  document.getElementById('tally').innerHTML = rows.map(function (r) {
+    return '<div><b>' + n[r[0]] + '</b><span class="meta">' + r[1] + '</span></div>';
+  }).join('') + '<div><b>' + total + '</b><span class="meta">items</span></div>';
+  document.getElementById('bar').innerHTML = ['done', 'doing', 'you'].map(function (k) {
+    return '<i class="b-' + k + '" style="width:' + (100 * n[k] / total) + '%"></i>';
+  }).join('');
+})();
+</script>
