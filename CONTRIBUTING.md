@@ -30,6 +30,7 @@ node scripts/mcp-smoke.mjs "Open https://example.com and tell me its heading."
 node scripts/a2a-smoke.mjs "Open https://example.com and tell me its heading."
 node scripts/agui-smoke.mjs "Open https://example.com and tell me its heading."
 node scripts/acp-smoke.mjs "Open https://example.com and tell me its heading."
+node scripts/recover-smoke.mjs   # a job sent by a process that died is found again, not sent twice
 ```
 
 Each smoke script drives one way in the way a real client would and prints what came back. They run real
