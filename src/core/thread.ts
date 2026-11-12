@@ -9,7 +9,8 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { ApiError, NotFoundError, type AgentActivity, type AgentTurn, type Session } from "@pinesandbox/computer";
 import { ensureComputer, existingSession, markSession, openSession } from "./computer.js";
-import { at, log, readJson, safe, writeJson } from "./home.js";
+import { at, log, safe } from "./home.js";
+import { scope, store } from "./store.js";
 
 export interface Exchange {
   at: string;
@@ -57,15 +58,14 @@ export interface Listener {
   progress(text: string): void;
 }
 
-const threadFile = (id: string) => at("threads", `${safe(id)}.json`);
-export const readThread = (id: string) => readJson<ThreadRecord>(threadFile(id));
-export const saveThread = (t: ThreadRecord) => writeJson(threadFile(t.id), t);
+export const readThread = (id: string) => store().get<ThreadRecord>(["threads", id]);
+export const saveThread = (t: ThreadRecord) => store().set(["threads", t.id], t);
 
 /** The titles of a Computer's threads, by session, for the desktop page. */
 export async function titlesOf(computer: string): Promise<Map<string, string>> {
   const titles = new Map<string, string>();
-  for (const file of await readdir(at("threads")).catch(() => [] as string[])) {
-    const t = await readJson<ThreadRecord>(at("threads", file));
+  for (const id of await store().list(["threads"])) {
+    const t = await readThread(id);
     if (t?.computer === computer && t.title) titles.set(t.session, t.title);
   }
   return titles;
@@ -79,6 +79,8 @@ export function newThread(computer: string, cwd?: string): ThreadRecord {
 /** Secrets the agent types without the model seeing them: PINE_SECRET_<NAME>=value, used as $NAME. */
 export function secrets(): Record<string, string> {
   const out: Record<string, string> = {};
+  // The environment is this machine's owner's. A hosted project is someone else.
+  if (scope()) return out;
   for (const [key, value] of Object.entries(process.env)) {
     const name = key.match(/^PINE_SECRET_([A-Z0-9_]+)$/)?.[1];
     if (name && value) out[name] = value;

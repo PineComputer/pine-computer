@@ -4,8 +4,8 @@
 // its own session on it, a separate workspace, still signed in.
 
 import { Binding, Client, Credentials, NotFoundError, SandboxRetainedError, type Computer, type Session } from "@pinesandbox/computer";
-import { readdir, rm } from "node:fs/promises";
-import { at, log, readJson, safe, withLock, writeJson } from "./home.js";
+import { log } from "./home.js";
+import { scope, store, type Key } from "./store.js";
 
 /** How long a Computer stays up with nothing to do. Waiting on a question isn't work. */
 export const IDLE_SECONDS = Number(process.env.PINE_IDLE_TIMEOUT_SECONDS ?? 1800);
@@ -31,14 +31,16 @@ export interface SessionRecord {
 
 let shared: Client | undefined;
 export function client(): Client {
+  const project = scope();
+  if (project) return project.client;
   if (!process.env.PINE_SANDBOX_API_KEY) throw new Error("Set PINE_SANDBOX_API_KEY (and PINE_SANDBOX_ENDPOINT) in the app's environment or in ~/.pine-computer/env.");
   return (shared ??= Client.fromEnv());
 }
 
-const computerFile = (name: string) => at("computers", `${safe(name)}.json`);
-const sessionFile = (computer: string, session: string) => at("sessions", safe(computer), `${safe(session)}.json`);
+const computerKey = (name: string): Key => ["computers", name];
+const sessionKey = (computer: string, session: string): Key => ["sessions", computer, session];
 
-export const readComputer = (name: string) => readJson<ComputerRecord>(computerFile(name));
+export const readComputer = (name: string) => store().get<ComputerRecord>(computerKey(name));
 
 function handle(saved: ComputerRecord | undefined): Computer | null {
   if (!saved?.binding) return null;
@@ -52,14 +54,14 @@ export async function bound(name: string): Promise<Computer | null> {
 
 /** Creates, starts or resumes the Computer as needed. One process at a time per Computer. */
 export function ensureComputer(name: string, onStep?: (text: string) => void): Promise<Computer> {
-  return withLock(`computer-${name}`, async () => {
+  return store().lock(`computer-${name}`, async () => {
     const saved = await readComputer(name);
     if (!saved) {
       onStep?.("Creating the computer");
       const credentials = await Credentials.generate();
       // Saved before Create: they're the only way to start this Computer again.
       const record: ComputerRecord = { name, id: credentials.id, credentials: credentials.serialize(), binding: "", bindingRevision: "0", createdAt: new Date().toISOString() };
-      await writeJson(computerFile(name), record);
+      await store().set(computerKey(name), record);
       const created = await client().createComputer({ credentials, idleTimeoutSeconds: IDLE_SECONDS });
       return save(record, created);
     }
@@ -92,7 +94,7 @@ export function ensureComputer(name: string, onStep?: (text: string) => void): P
 
 async function save(record: ComputerRecord, found: Computer): Promise<Computer> {
   if (!record.binding || BigInt(record.bindingRevision) < found.bindingRevision) {
-    await writeJson(computerFile(record.name), { ...record, binding: found.binding().serialize(), bindingRevision: found.bindingRevision.toString() });
+    await store().set(computerKey(record.name), { ...record, binding: found.binding().serialize(), bindingRevision: found.bindingRevision.toString() });
   }
   return found;
 }
@@ -100,7 +102,7 @@ async function save(record: ComputerRecord, found: Computer): Promise<Computer> 
 /** A session that's open under the Computer's current binding, or null. */
 export async function existingSession(computerName: string, sessionName: string): Promise<Session | null> {
   const found = await bound(computerName);
-  const saved = await readJson<SessionRecord>(sessionFile(computerName, sessionName));
+  const saved = await store().get<SessionRecord>(sessionKey(computerName, sessionName));
   if (!found || !saved || saved.bindingRevision !== found.bindingRevision.toString()) return null;
   return found.adoptSession(saved.name, saved.token);
 }
@@ -110,9 +112,9 @@ export async function existingSession(computerName: string, sessionName: string)
  * a new binding and no sessions: the session opens again, empty, and `fresh` says so.
  */
 export async function openSession(found: Computer, computerName: string, sessionName: string, label: string): Promise<{ session: Session; fresh: boolean }> {
-  const file = sessionFile(computerName, sessionName);
-  return withLock(`session-${computerName}-${sessionName}`, async () => {
-    const saved = await readJson<SessionRecord>(file);
+  const key = sessionKey(computerName, sessionName);
+  return store().lock(`session-${computerName}-${sessionName}`, async () => {
+    const saved = await store().get<SessionRecord>(key);
     if (saved && saved.bindingRevision === found.bindingRevision.toString()) return { session: found.adoptSession(saved.name, saved.token), fresh: false };
     let opened: Session;
     try {
@@ -123,7 +125,7 @@ export async function openSession(found: Computer, computerName: string, session
       await found.destroySession(sessionName);
       opened = await create(found, computerName, sessionName, label);
     }
-    await writeJson(file, { name: opened.name, token: opened.token, bindingRevision: found.bindingRevision.toString(), usedAt: new Date().toISOString() } satisfies SessionRecord);
+    await store().set(key, { name: opened.name, token: opened.token, bindingRevision: found.bindingRevision.toString(), usedAt: new Date().toISOString() } satisfies SessionRecord);
     return { session: opened, fresh: true };
   });
 }
@@ -145,7 +147,7 @@ async function create(found: Computer, computerName: string, sessionName: string
       const candidates: { name: string; usedAt: string }[] = [];
       for (const s of open) {
         if (s.name === sessionName) continue;
-        const record = await readJson<SessionRecord>(sessionFile(computerName, s.name));
+        const record = await store().get<SessionRecord>(sessionKey(computerName, s.name));
         if (record?.busy && alive(record.busy.pid)) continue;
         candidates.push({ name: s.name, usedAt: record?.usedAt ?? "" });
       }
@@ -155,7 +157,7 @@ async function create(found: Computer, computerName: string, sessionName: string
       await found.destroySession(oldest.name, { clean: true }).catch((e) => {
         if ((e as { status?: number }).status !== 404) throw e;
       });
-      await rm(sessionFile(computerName, oldest.name), { force: true });
+      await store().delete(sessionKey(computerName, oldest.name));
     }
   }
 }
@@ -171,10 +173,10 @@ function alive(pid: number): boolean {
 
 /** Marks a thread's session as in use by this process, or done; used to pick a session to close. */
 export async function markSession(computerName: string, sessionName: string, busy: boolean): Promise<void> {
-  const file = sessionFile(computerName, sessionName);
-  const saved = await readJson<SessionRecord>(file);
+  const key = sessionKey(computerName, sessionName);
+  const saved = await store().get<SessionRecord>(key);
   if (!saved) return;
-  await writeJson(file, { ...saved, usedAt: new Date().toISOString(), busy: busy ? { pid: process.pid, since: new Date().toISOString() } : undefined });
+  await store().set(key, { ...saved, usedAt: new Date().toISOString(), busy: busy ? { pid: process.pid, since: new Date().toISOString() } : undefined });
 }
 
 export interface SessionView {
@@ -185,10 +187,9 @@ export interface SessionView {
 
 /** The sessions this install holds on a Computer: the ones working first, then the most recently used. */
 export async function sessionsOf(computerName: string): Promise<SessionView[]> {
-  const files = await readdir(at("sessions", safe(computerName))).catch(() => [] as string[]);
   const views: SessionView[] = [];
-  for (const file of files.filter((f) => f.endsWith(".json"))) {
-    const saved = await readJson<SessionRecord>(at("sessions", safe(computerName), file));
+  for (const name of await store().list(["sessions", computerName])) {
+    const saved = await store().get<SessionRecord>(sessionKey(computerName, name));
     if (saved) views.push({ name: saved.name, usedAt: saved.usedAt, working: !!saved.busy && alive(saved.busy.pid) });
   }
   return views.sort((a, b) => Number(b.working) - Number(a.working) || (b.usedAt ?? "").localeCompare(a.usedAt ?? ""));
@@ -196,7 +197,7 @@ export async function sessionsOf(computerName: string): Promise<SessionView[]> {
 
 /** Saves what the Computer keeps (sign-ins, passkeys, skills), then releases its sandbox. */
 export async function stopComputer(name: string): Promise<boolean> {
-  return withLock(`computer-${name}`, async () => {
+  return store().lock(`computer-${name}`, async () => {
     const saved = await readComputer(name);
     const found = handle(saved);
     if (!saved || !found) return false;
@@ -204,7 +205,7 @@ export async function stopComputer(name: string): Promise<boolean> {
       if (error instanceof NotFoundError) return true;
       throw error;
     });
-    if (stopped) await writeJson(computerFile(name), { ...saved, binding: "" });
+    if (stopped) await store().set(computerKey(name), { ...saved, binding: "" });
     else log(`stop of ${name} is unconfirmed`);
     return stopped;
   });

@@ -16,7 +16,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, existingSession, bound, sessionsOf } from "../core/computer.js";
-import { at, log, readJson, writeJson } from "../core/home.js";
+import { at, log } from "../core/home.js";
+import { local } from "../core/store.js";
 import { readThread, titlesOf } from "../core/thread.js";
 import { page } from "./page.js";
 
@@ -35,11 +36,10 @@ const CLI = fileURLToPath(new URL("../cli.js", import.meta.url));
 const BUILD = String(statSync(fileURLToPath(import.meta.url)).mtimeMs);
 
 async function key(): Promise<string> {
-  const file = at("viewer.json");
-  const saved = await readJson<{ key: string }>(file);
+  const saved = await local.get<{ key: string }>(["viewer"]);
   if (saved?.key) return saved.key;
   const fresh = randomBytes(12).toString("base64url");
-  await writeJson(file, { key: fresh });
+  await local.set(["viewer"], { key: fresh });
   return fresh;
 }
 

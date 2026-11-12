@@ -14,7 +14,8 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import express, { type Request, type RequestHandler, type Response } from "express";
 import { agentCard, PineExecutor } from "./a2a/agent.js";
 import { aguiHandler } from "./agui/agent.js";
-import { at, readJson, writeJson } from "./core/home.js";
+import { at } from "./core/home.js";
+import { local } from "./core/store.js";
 import { mcpServer } from "./mcp/server.js";
 import { handleViewer, hostViewer } from "./viewer/server.js";
 
@@ -24,11 +25,10 @@ const PORT = Number(process.env.PINE_SERVE_PORT ?? 4778);
 /** PINE_SERVE_TOKEN, or one made on first start and kept in serve.json. */
 async function token(): Promise<string> {
   if (process.env.PINE_SERVE_TOKEN) return process.env.PINE_SERVE_TOKEN;
-  const file = at("serve.json");
-  const saved = await readJson<{ token: string }>(file);
+  const saved = await local.get<{ token: string }>(["serve"]);
   if (saved?.token) return saved.token;
   const fresh = randomBytes(24).toString("base64url");
-  await writeJson(file, { token: fresh });
+  await local.set(["serve"], { token: fresh });
   return fresh;
 }
 
