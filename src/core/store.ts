@@ -44,6 +44,12 @@ export const scoped = (name: string) => {
   return s ? `${s.project}:${name}` : name;
 };
 
+/** A folder on this disk for the current project: the files a job takes and returns. */
+export const own = (...parts: string[]) => {
+  const s = scope();
+  return at(...(s ? ["projects", s.project] : []), ...parts);
+};
+
 /** Files under ~/.pine-computer, one JSON file per record. */
 const files: Store = {
   get: (key) => readJson(file(key)),

@@ -14,8 +14,9 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import express, { type Request, type RequestHandler, type Response } from "express";
 import { agentCard, PineExecutor } from "./a2a/agent.js";
 import { aguiHandler } from "./agui/agent.js";
-import { at } from "./core/home.js";
-import { local } from "./core/store.js";
+import { Client } from "@pinesandbox/computer";
+import { at, log } from "./core/home.js";
+import { inScope, local, projectOf, scoped, type Scope } from "./core/store.js";
 import { mcpServer } from "./mcp/server.js";
 import { handleViewer, hostViewer } from "./viewer/server.js";
 
@@ -35,13 +36,57 @@ async function token(): Promise<string> {
 /** Every caller with the token is the same app, so A2A's per-user task scope is one scope. */
 const APP: User = { isAuthenticated: true, userName: "app" };
 
+/**
+ * PINE_HOSTED=1: the service is for every project, not one. The bearer token is the caller's own project key,
+ * and each request runs in that project's scope. The key is checked with the platform once, and never stored.
+ */
+const HOSTED = process.env.PINE_HOSTED === "1";
+const known = new Map<string, Promise<Scope | null>>();
+
+function projectFor(key: string): Promise<Scope | null> {
+  const project = projectOf(key);
+  let found = known.get(project);
+  if (!found) {
+    const client = new Client({ endpoint: process.env.PINE_SANDBOX_ENDPOINT ?? "", apiKey: key });
+    found = client.projectPolicy().then(
+      () => ({ project, client }),
+      (error: Error & { status?: number }) => {
+        known.delete(project);
+        if (error.status === 401 || error.status === 403) return null;
+        throw error;
+      },
+    );
+    // Bounded: a caller trying keys can't grow it without end.
+    if (known.size >= 5000) known.delete(known.keys().next().value!);
+    known.set(project, found);
+  }
+  return found;
+}
+
 export async function serve(): Promise<void> {
   const origin = (process.env.PINE_PUBLIC_URL ?? `http://${HOST === "0.0.0.0" ? "127.0.0.1" : HOST}:${PORT}`).replace(/\/+$/, "");
-  const expected = Buffer.from(await token());
+  if (HOSTED && !process.env.PINE_SANDBOX_ENDPOINT) throw new Error("PINE_HOSTED needs PINE_SANDBOX_ENDPOINT: the platform every project's key is for.");
+  const expected = Buffer.from(HOSTED ? "" : await token());
   hostViewer(origin);
 
-  const auth: RequestHandler = (req, res, next) => {
-    const given = Buffer.from(/^Bearer (.+)$/i.exec(req.get("authorization") ?? "")?.[1] ?? "");
+  const auth: RequestHandler = async (req, res, next) => {
+    const sent = req.get("authorization") ?? "";
+    const given = Buffer.from(/^Bearer (.+)$/i.exec(sent)?.[1] ?? "");
+    if (HOSTED) {
+      // Some chat apps send their key field as the whole header.
+      const key = given.toString() || sent.trim();
+      try {
+        const project = key ? await projectFor(key) : null;
+        if (project) return inScope(project, () => {
+          res.locals.project = project.project;
+          next();
+        });
+      } catch (error) {
+        log("checking a project key failed:", error);
+        return void res.status(503).json({ error: "The key couldn't be checked just now. Try again." });
+      }
+      return void res.status(401).set("www-authenticate", 'Bearer realm="pine-computer"').json({ error: "A Pine Computer project key is required as the bearer token." });
+    }
     if (given.length === expected.length && timingSafeEqual(given, expected)) return next();
     res.status(401).set("www-authenticate", 'Bearer realm="pine-computer"').json({ error: "A bearer token is required: the one in ~/.pine-computer/serve.json, or PINE_SERVE_TOKEN." });
   };
@@ -61,7 +106,7 @@ export async function serve(): Promise<void> {
     legacyAgentCardRouter({ agentCardProvider: async () => card }),
     agentCardHandler({ agentCardProvider: async () => AgentCard.toJSON(card) as AgentCard }),
   );
-  app.use("/a2a", auth, jsonRpcHandler({ requestHandler: a2a, userBuilder: async () => APP, legacyCompat: { enabled: true } }));
+  app.use("/a2a", auth, jsonRpcHandler({ requestHandler: a2a, userBuilder: async (req) => (HOSTED ? { isAuthenticated: true, userName: String((req as Request).res?.locals.project) } : APP), legacyCompat: { enabled: true } }));
 
   // AG-UI: one POST per run, answered with a stream of events. A message may carry the person's files inline.
   app.post("/agui", auth, express.json({ limit: "32mb" }), aguiHandler());
@@ -70,19 +115,21 @@ export async function serve(): Promise<void> {
   const sessions = new Map<string, StreamableHTTPServerTransport>();
   app.post("/mcp", auth, express.json({ limit: "4mb" }), async (req: Request, res: Response) => {
     const id = req.get("mcp-session-id");
-    let transport = id ? sessions.get(id) : undefined;
+    let transport = id ? sessions.get(scoped(id)) : undefined;
     if (!transport) {
       if (id) return void res.status(404).json({ jsonrpc: "2.0", error: { code: -32001, message: "Session not found" }, id: null });
       if (!isInitializeRequest(req.body)) return void res.status(400).json({ jsonrpc: "2.0", error: { code: -32000, message: "Start with initialize" }, id: null });
-      const fresh = new StreamableHTTPServerTransport({ sessionIdGenerator: () => randomUUID(), onsessioninitialized: (sid) => void sessions.set(sid, fresh) });
-      fresh.onclose = () => void (fresh.sessionId && sessions.delete(fresh.sessionId));
+      // A session belongs to the project that opened it: another project naming it finds nothing.
+      let held = "";
+      const fresh = new StreamableHTTPServerTransport({ sessionIdGenerator: () => randomUUID(), onsessioninitialized: (sid) => void sessions.set((held = scoped(sid)), fresh) });
+      fresh.onclose = () => void sessions.delete(held);
       await mcpServer({ hosted: true }).connect(fresh);
       transport = fresh;
     }
     await transport.handleRequest(req, res, req.body);
   });
   const existing: RequestHandler = async (req, res) => {
-    const transport = sessions.get(req.get("mcp-session-id") ?? "");
+    const transport = sessions.get(scoped(req.get("mcp-session-id") ?? ""));
     if (!transport) return void res.status(404).json({ jsonrpc: "2.0", error: { code: -32001, message: "Session not found" }, id: null });
     await transport.handleRequest(req, res);
   };
@@ -100,5 +147,5 @@ export async function serve(): Promise<void> {
   console.log(`  MCP   ${origin}/mcp`);
   console.log(`  A2A   ${origin}/${AGENT_CARD_PATH}`);
   console.log(`  AG-UI ${origin}/agui`);
-  console.log(`  Token PINE_SERVE_TOKEN, or the one in ${at("serve.json")}`);
+  console.log(HOSTED ? "  Token each caller's own project key" : `  Token PINE_SERVE_TOKEN, or the one in ${at("serve.json")}`);
 }

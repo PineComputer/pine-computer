@@ -14,7 +14,8 @@ import type { AgentActivity } from "@pinesandbox/computer";
 import { EventType, type BaseEvent, type Message, type RunAgentInput } from "@ag-ui/core";
 import { EventEncoder } from "@ag-ui/encoder";
 import type { Request, RequestHandler, Response } from "express";
-import { at, log, safe } from "../core/home.js";
+import { log, safe } from "../core/home.js";
+import { own, scoped } from "../core/store.js";
 import { newThread, readThread, saveThread, work, type ThreadRecord } from "../core/thread.js";
 import { fileUrl, hostedLinks, viewerUrl } from "../viewer/server.js";
 
@@ -116,7 +117,7 @@ export function aguiHandler(): RequestHandler {
     const beat = setInterval(() => void (gone || res.write(": working\n\n")), KEEPALIVE_MS);
     const id = `agui-${safe(threadId)}`;
     try {
-      const earlier = jobs.get(id);
+      const earlier = jobs.get(scoped(id));
       if (earlier && !earlier.end) {
         // The person came back while the job is still going: they join it. Their message isn't a new job.
         say(`Still working on what you gave me earlier. [Watch the computer or take over](${earlier.desktop})`);
@@ -202,7 +203,7 @@ function start(id: string, thread: ThreadRecord, text: string, files: string[], 
       for (const key of [...open]) push({ op: "end", key, result: "Not finished" });
     }
   })();
-  jobs.set(id, job);
+  jobs.set(scoped(id), job);
   return job;
 }
 
@@ -234,7 +235,7 @@ async function read(m: Message, thread: ThreadRecord): Promise<{ text: string; f
     const url: unknown = p.source?.type === "url" ? p.source.value : p.url;
     if (p.type === "text" && typeof p.text === "string") text.push(p.text);
     else if (typeof data === "string") {
-      const dir = at("inputs", safe(thread.id));
+      const dir = own("inputs", safe(thread.id));
       await mkdir(dir, { recursive: true, mode: 0o700 });
       const file = path.join(dir, safe(name));
       await writeFile(file, Buffer.from(data, "base64"), { mode: 0o600 });

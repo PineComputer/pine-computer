@@ -9,8 +9,8 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { ApiError, NotFoundError, type AgentActivity, type AgentTurn, type Session } from "@pinesandbox/computer";
 import { ensureComputer, existingSession, markSession, openSession } from "./computer.js";
-import { at, log, safe } from "./home.js";
-import { scope, store } from "./store.js";
+import { log, safe } from "./home.js";
+import { own, scope, store } from "./store.js";
 
 export interface Exchange {
   at: string;
@@ -272,7 +272,7 @@ async function upload(session: Session, files: string[], on: Listener): Promise<
 
 /** The files a finished job returned, copied next to the thread: the app's working folder, or ours. */
 async function collect(session: Session, turn: AgentTurn, thread: ThreadRecord): Promise<SavedFile[]> {
-  const dir = thread.cwd ? path.join(thread.cwd, "pine-computer-files") : at("files", safe(thread.id));
+  const dir = thread.cwd ? path.join(thread.cwd, "pine-computer-files") : own("files", safe(thread.id));
   const saved: SavedFile[] = [];
   for (const artifact of turn.result?.artifacts ?? []) {
     try {

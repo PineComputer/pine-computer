@@ -9,7 +9,8 @@ import path from "node:path";
 import type { AgentActivity } from "@pinesandbox/computer";
 import { A2A_PROTOCOL_VERSION, Role, TaskState, type AgentCard, type Message, type Part } from "@a2a-js/sdk";
 import { AgentEvent, type AgentExecutor, type ExecutionEventBus, type RequestContext } from "@a2a-js/sdk/server";
-import { at, log, safe } from "../core/home.js";
+import { log, safe } from "../core/home.js";
+import { own } from "../core/store.js";
 import { dropQuestion, newThread, readThread, saveThread, site, work, type SavedFile, type ThreadRecord } from "../core/thread.js";
 import { fileUrl, hostedLinks, mediaType, viewerUrl } from "../viewer/server.js";
 
@@ -190,7 +191,7 @@ async function read(m: Message, thread: ThreadRecord): Promise<{ text: string; f
     else if (c?.$case === "data") text.push(JSON.stringify(c.value, null, 2));
     else if (c?.$case === "url") text.push(`(${p.filename || "file"}: ${c.value})`);
     else if (c?.$case === "raw") {
-      const dir = at("inputs", safe(thread.id));
+      const dir = own("inputs", safe(thread.id));
       await mkdir(dir, { recursive: true, mode: 0o700 });
       const file = path.join(dir, safe(p.filename || `file-${i + 1}`));
       await writeFile(file, c.value, { mode: 0o600 });
