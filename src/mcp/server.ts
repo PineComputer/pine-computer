@@ -4,88 +4,16 @@
 // stops on a question is answered by passing its thread back to computer_task. The same tools serve stdio
 // (an agent on this machine) and Streamable HTTP (`pine-computer serve`, where files come back as links).
 
-import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { log } from "../core/home.js";
-import { newThread, readThread, saveThread, work, type Outcome, type ThreadRecord } from "../core/thread.js";
-import { ensureViewer, fileUrl, hostedLinks, viewerUrl } from "../viewer/server.js";
+import { newThread, readThread, saveThread, type ThreadRecord } from "../core/thread.js";
+import { fileLines, jobOf, report, running, start, type Where } from "../jobs.js";
+import { ensureViewer, viewerUrl } from "../viewer/server.js";
 
 const COMPUTER = process.env.PINE_COMPUTER || "default";
 const VERSION = "0.1.0";
-
-interface Job {
-  thread: ThreadRecord;
-  done: Promise<Outcome>;
-  outcome?: Outcome;
-  error?: string;
-  steps: string[];
-  controller: AbortController;
-  /** Who hears each step: the tool call that's waiting, if it asked for progress. */
-  listener?: (step: string) => void;
-}
-
-const jobs = new Map<string, Job>();
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function start(thread: ThreadRecord, task: string, files: string[]): Job {
-  const controller = new AbortController();
-  const job: Job = { thread, steps: [], controller, done: Promise.resolve() as unknown as Promise<Outcome> };
-  const note = (text: string) => {
-    job.steps.push(text);
-    job.listener?.(text);
-  };
-  job.done = work(thread, task, {
-    files,
-    signal: controller.signal,
-    on: {
-      step: note,
-      activity: (a) => a.state !== "running" && note(`${a.state === "completed" ? "" : `(${a.state}) `}${a.title}`),
-      progress: () => {},
-    },
-  });
-  job.done.then(
-    (outcome) => (job.outcome = outcome),
-    (error: Error) => (job.error = error.message),
-  );
-  jobs.set(thread.id, job);
-  return job;
-}
-
-/** Where the client finds the tools' files: on this machine's disk, or at a link the serve process hosts. */
-interface Where {
-  /** The working folder new threads keep their files in; none for a hosted client. */
-  cwd?: string;
-  hosted: boolean;
-}
-
-/** Waits for the job up to the limit, then says where it stands. */
-async function report(job: Job, seconds: number, where: Where, progress?: (step: string) => void): Promise<string> {
-  job.listener = progress;
-  await Promise.race([job.done.catch(() => undefined), sleep(seconds * 1000)]);
-  job.listener = undefined;
-  const link = await viewerUrl(COMPUTER, job.thread.session);
-  const lines = [`thread: ${job.thread.id}`];
-  if (job.error) {
-    lines.push("state: error", `The computer couldn't take this on: ${job.error}`);
-  } else if (!job.outcome) {
-    lines.push("state: working", `Still working. Call computer_wait with this thread to keep waiting. The person can watch it here: ${link}`);
-    if (job.steps.length) lines.push("", "Steps so far:", ...job.steps.slice(-10).map((s) => `- ${s}`));
-  } else {
-    const o = job.outcome;
-    lines.push(`state: ${o.state}`, "", where.hosted ? await hostedLinks(o.text, job.thread.id, o.files) : o.text);
-    if (o.state === "needs_input") lines.push("", "The computer is waiting. Pass the answer to computer_task with this thread.", `If it needs the person at the screen (a code, a check), they can take over here: ${link}`);
-    if (o.files.length) lines.push("", "Files:", ...(await files(job.thread.id, o.files.map((f) => f.path), where)));
-    if (o.cost !== null) lines.push("", `cost: $${o.cost.toFixed(2)}`);
-  }
-  return lines.join("\n");
-}
-
-async function files(threadId: string, paths: string[], where: Where): Promise<string[]> {
-  if (!where.hosted) return paths.map((p) => `- ${p}`);
-  return Promise.all(paths.map(async (p) => `- ${path.basename(p)}: ${await fileUrl(threadId, path.basename(p))}`));
-}
 
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
@@ -117,15 +45,15 @@ export function mcpServer(where: Where): McpServer {
       if (id) {
         thread = await readThread(id);
         if (!thread) return text(`No thread ${id}. Leave the thread out to start a new one.`);
-        const running = jobs.get(id);
-        if (running && !running.outcome && !running.error) return text(`This thread's job is still running. Call computer_wait, or computer_cancel first.\n\nthread: ${id}`);
+        const busy = jobOf(id);
+        if (running(busy)) return text(`This thread's job is still running. Call computer_wait, or computer_cancel first.\n\nthread: ${id}`);
       } else {
         thread = newThread(COMPUTER, where.cwd);
         thread.title = task.split("\n")[0].slice(0, 60);
         await saveThread(thread);
       }
       const job = start(thread, task, (files as string[] | undefined) ?? []);
-      return text(await report(job, wait_seconds ?? 240, where, progress(extra)));
+      return text(await report(job, wait_seconds ?? 240, { where, progress: progress(extra) }));
     },
   );
 
@@ -140,12 +68,12 @@ export function mcpServer(where: Where): McpServer {
       },
     },
     async ({ thread: id, wait_seconds }, extra) => {
-      const job = jobs.get(id);
-      if (job) return text(await report(job, wait_seconds ?? 240, where, progress(extra)));
+      const job = jobOf(id);
+      if (job) return text(await report(job, wait_seconds ?? 240, { where, progress: progress(extra) }));
       const thread = await readThread(id);
       const last = thread?.history.at(-1);
       if (!last) return text(`No job on thread ${id} in this session.`);
-      return text(`thread: ${id}\nstate: ${last.state}\n\n${last.reply}${last.files.length ? `\n\nFiles:\n${(await files(id, last.files, where)).join("\n")}` : ""}`);
+      return text(`thread: ${id}\nstate: ${last.state}\n\n${last.reply}${last.files.length ? `\n\nFiles:\n${(await fileLines(id, last.files, where)).join("\n")}` : ""}`);
     },
   );
 
@@ -157,10 +85,10 @@ export function mcpServer(where: Where): McpServer {
       inputSchema: { thread: z.string() },
     },
     async ({ thread: id }) => {
-      const job = jobs.get(id);
-      if (!job || job.outcome || job.error) return text(`Nothing is running on thread ${id}.`);
+      const job = jobOf(id);
+      if (!running(job)) return text(`Nothing is running on thread ${id}.`);
       job.controller.abort();
-      return text(await report(job, 30, where));
+      return text(await report(job, 30, { where }));
     },
   );
 

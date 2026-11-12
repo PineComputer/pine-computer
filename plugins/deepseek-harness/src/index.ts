@@ -12,7 +12,7 @@ import z from "@deepseek-ai/schemastery";
 import { loadEnv } from "../../../src/core/home.js";
 import { newThread, readThread, saveThread, type ThreadRecord } from "../../../src/core/thread.js";
 import { ensureViewer, viewerUrl } from "../../../src/viewer/server.js";
-import { jobOf, report, running, start } from "./jobs.js";
+import { jobOf, report, running, start } from "../../../src/jobs.js";
 
 export const name = "pine-computer";
 export const inject = ["tools", "credentials"];
@@ -98,7 +98,7 @@ export function apply(ctx: Context, config: Config): void {
       }
       const job = start(thread, args.task, args.files ?? []);
       try {
-        return await report(job, wait, exec.signal);
+        return await report(job, wait, { signal: exec.signal });
       } catch (error) {
         // The call was stopped before the agent heard which thread this is, so it couldn't cancel the job
         // itself: stop it here rather than leave a Computer working for nobody.
@@ -120,7 +120,7 @@ export function apply(ctx: Context, config: Config): void {
       const wait = seconds(args.wait_seconds);
       const job = jobOf(args.thread);
       // Stopping this call only stops the waiting: the agent knows the thread and can cancel the job.
-      if (job) return report(job, wait, exec.signal);
+      if (job) return report(job, wait, { signal: exec.signal });
       const thread = await readThread(args.thread);
       const last = thread?.history.at(-1);
       if (!last) return `No job on thread ${args.thread} in this session.`;
@@ -137,7 +137,7 @@ export function apply(ctx: Context, config: Config): void {
       const job = jobOf(args.thread);
       if (!running(job)) return `Nothing is running on thread ${args.thread}.`;
       job.controller.abort();
-      return report(job, 30, exec.signal);
+      return report(job, 30, { signal: exec.signal });
     },
   }));
 

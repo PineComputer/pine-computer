@@ -8,6 +8,7 @@ most of all an integration with an agent app we haven't covered.
 | | |
 | --- | --- |
 | `src/core/` | The one core: a Computer, its threads, where their files go. Every way in uses it. |
+| `src/jobs.ts` | The jobs a tool-shaped way in has handed over, and how one reports. Shared by the MCP tools and the plugins. |
 | `src/mcp/`, `src/a2a/`, `src/acp/` | One thin adapter per protocol. No job logic lives here. |
 | `src/viewer/` | The live desktop pages. |
 | `skills/pine-computer/` | The skill: when and how an agent hands work over. |

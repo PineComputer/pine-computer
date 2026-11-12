@@ -1,10 +1,11 @@
-// The jobs this process has handed to a Computer, and how one reports. This is the same bookkeeping as
-// src/mcp/server.ts, without the MCP types: a job runs here while a tool call waits a while for it, one
-// that takes longer keeps running, and computer_wait picks it up. The wording of every report is kept the
-// same as the MCP tools', so the shared skill and an agent that has used either read the same thing.
+// The jobs this process has handed to a Computer, and how one reports. Every tool-shaped way in uses this
+// (the MCP tools, the DeepSeek Harness plugin), so an agent that has used either reads the same thing. A job
+// runs here while a tool call waits a while for it; one that takes longer keeps running, and the next wait
+// picks it up.
 
-import { work, type Outcome, type ThreadRecord } from "../../../src/core/thread.js";
-import { viewerUrl } from "../../../src/viewer/server.js";
+import path from "node:path";
+import { work, type Outcome, type ThreadRecord } from "./core/thread.js";
+import { fileUrl, hostedLinks, viewerUrl } from "./viewer/server.js";
 
 export interface Job {
   thread: ThreadRecord;
@@ -13,10 +14,19 @@ export interface Job {
   error?: string;
   steps: string[];
   controller: AbortController;
+  /** Who hears each step: the tool call that's waiting, if it asked for progress. */
+  listener?: (step: string) => void;
 }
 
-// Kept by the module, not by one mount of the plugin: dsh mounts the plugin again when its settings
-// change, and a job that is running then must still be found by the next computer_wait.
+/** Where the client finds a job's files: on this machine's disk, or at a link the serve process hosts. */
+export interface Where {
+  /** The working folder new threads keep their files in; none for a hosted client. */
+  cwd?: string;
+  hosted: boolean;
+}
+
+// Kept by the module, not by one server or one mount of a plugin: a job that is running when its caller
+// reconnects or reloads must still be found by the next wait.
 const jobs = new Map<string, Job>();
 
 export const jobOf = (threadId: string) => jobs.get(threadId);
@@ -25,7 +35,10 @@ export const running = (job: Job | undefined): job is Job => !!job && !job.outco
 export function start(thread: ThreadRecord, task: string, files: string[]): Job {
   const controller = new AbortController();
   const job: Job = { thread, steps: [], controller, done: Promise.resolve() as unknown as Promise<Outcome> };
-  const note = (text: string) => void job.steps.push(text);
+  const note = (text: string) => {
+    job.steps.push(text);
+    job.listener?.(text);
+  };
   job.done = work(thread, task, {
     files,
     signal: controller.signal,
@@ -53,15 +66,25 @@ function aborted(signal: AbortSignal, settled: Promise<unknown>): Promise<void> 
   });
 }
 
+export interface ReportOptions {
+  where?: Where;
+  /** Hears each step while this call waits. */
+  progress?: (step: string) => void;
+  /** The caller giving up: the wait ends and this throws. The job itself keeps running. */
+  signal?: AbortSignal;
+}
+
 /** Waits for the job up to the limit, or until the caller gives up, then says where it stands. */
-export async function report(job: Job, seconds: number, signal?: AbortSignal): Promise<string> {
+export async function report(job: Job, seconds: number, { where = { hosted: false }, progress, signal }: ReportOptions = {}): Promise<string> {
   let timer: NodeJS.Timeout | undefined;
   const limit = new Promise<void>((resolve) => (timer = setTimeout(resolve, seconds * 1000)));
   const settled = job.done.catch(() => undefined);
+  job.listener = progress;
   try {
     await Promise.race([settled, limit, ...(signal ? [aborted(signal, Promise.race([settled, limit]))] : [])]);
   } finally {
     clearTimeout(timer);
+    job.listener = undefined;
   }
   signal?.throwIfAborted();
   const link = await viewerUrl(job.thread.computer, job.thread.session);
@@ -73,10 +96,15 @@ export async function report(job: Job, seconds: number, signal?: AbortSignal): P
     if (job.steps.length) lines.push("", "Steps so far:", ...job.steps.slice(-10).map((s) => `- ${s}`));
   } else {
     const o = job.outcome;
-    lines.push(`state: ${o.state}`, "", o.text);
+    lines.push(`state: ${o.state}`, "", where.hosted ? await hostedLinks(o.text, job.thread.id, o.files) : o.text);
     if (o.state === "needs_input") lines.push("", "The computer is waiting. Pass the answer to computer_task with this thread.", `If it needs the person at the screen (a code, a check), they can take over here: ${link}`);
-    if (o.files.length) lines.push("", "Files:", ...o.files.map((f) => `- ${f.path}`));
+    if (o.files.length) lines.push("", "Files:", ...(await fileLines(job.thread.id, o.files.map((f) => f.path), where)));
     if (o.cost !== null) lines.push("", `cost: $${o.cost.toFixed(2)}`);
   }
   return lines.join("\n");
+}
+
+export async function fileLines(threadId: string, paths: string[], where: Where): Promise<string[]> {
+  if (!where.hosted) return paths.map((p) => `- ${p}`);
+  return Promise.all(paths.map(async (p) => `- ${path.basename(p)}: ${await fileUrl(threadId, path.basename(p))}`));
 }
