@@ -1,6 +1,6 @@
 # Contributing
 
-Pine Computer is in private beta, and this repository is young. Issues and pull requests are welcome,
+Issues and pull requests are welcome,
 most of all an integration with an agent app we haven't covered.
 
 ## Layout

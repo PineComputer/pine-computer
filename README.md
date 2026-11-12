@@ -26,7 +26,6 @@
 
 <p align="center">
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-3a3a3a?style=flat-square">
-  <img alt="Status: private beta" src="https://img.shields.io/badge/status-private%20beta-d69e2e?style=flat-square">
   <img alt="MCP · A2A · ACP" src="https://img.shields.io/badge/MCP%20%C2%B7%20A2A%20%C2%B7%20ACP-one%20core-2fd892?style=flat-square">
 </p>
 
@@ -102,7 +101,7 @@ bot of its own. [`docs/cli.md`](docs/cli.md) is the full reference.
 
 ## Get started
 
-Pine Computer is in private beta. [Request access at pinecomputer.io](https://pinecomputer.io) for a key.
+You need a Pine Computer project key: get one at [pinecomputer.io](https://pinecomputer.io).
 
 Node.js 22 or newer.
 
@@ -205,7 +204,7 @@ product.
 
 ## Status
 
-Private beta. What has been run end to end:
+What has been run end to end:
 
 | | State |
 | --- | --- |
