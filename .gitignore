@@ -1,0 +1,13 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Keys, the Computer's saved records, the files its turns returned, the portal's staff key
+.env
+.env.local
+.data/
+*.local
+portal/.wrangler/
+recordings/
+.DS_Store
