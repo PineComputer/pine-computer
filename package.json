@@ -1,7 +1,7 @@
 {
-  "name": "pine-computer-bridge",
+  "name": "pine-computer",
   "version": "0.1.0",
-  "description": "Pine Computer in other people's agents: one core behind MCP, A2A and ACP, with a live desktop page and a CLI.",
+  "description": "Pine Computer for the agent you already use: a cloud computer with an agent built in, as a tool (MCP, A2A), a coworker (ACP) and a CLI.",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

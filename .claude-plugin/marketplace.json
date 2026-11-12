@@ -1,0 +1,11 @@
+{
+  "name": "pine-computer",
+  "owner": { "name": "Pine Computer", "url": "https://pinecomputer.io" },
+  "plugins": [
+    {
+      "name": "pine-computer",
+      "source": "./",
+      "description": "Give your agent a Pine Computer: a cloud computer with an agent built in, for work that needs a browser, sign-ins and finished files."
+    }
+  ]
+}

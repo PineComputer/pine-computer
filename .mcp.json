@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "pine-computer": { "command": "pine-computer", "args": ["mcp"] }
+  }
+}

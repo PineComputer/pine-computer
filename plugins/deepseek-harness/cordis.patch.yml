@@ -1,0 +1,7 @@
+# What this bundle adds to a profile: the four computer tools, and the skill that says when to use them.
+# Settings go under the first row's `config` in the profile's own cordis.patch.yml, or on the Plugins page.
+- insert:
+    - id: pine-computer
+      name: dsh-plugin-pine-computer
+    - id: pine-computer-skill
+      name: dsh-plugin-pine-computer/skill
