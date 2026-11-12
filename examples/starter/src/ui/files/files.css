@@ -1,0 +1,63 @@
+/* Files: a session switcher, a breadcrumb, and a work directory you can drop files on. */
+
+.seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-elev); max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.seg button {
+  display: inline-flex; align-items: center; gap: 7px; height: 28px; padding: 0 12px; border: 0; border-radius: 7px;
+  background: none; color: var(--fg-3); font-size: 12.5px; font-weight: 500; cursor: pointer; white-space: nowrap;
+  transition: background 150ms var(--ease), color 150ms var(--ease);
+}
+.seg button:hover { color: var(--fg); }
+.seg button[aria-selected="true"] { background: var(--surface-2); color: var(--fg); box-shadow: 0 0 0 1px var(--line-2); }
+
+.crumbs { display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; font-size: 13px; }
+.crumbs button {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 7px; border: 0; border-radius: 6px;
+  background: none; color: var(--fg-3); cursor: pointer; white-space: nowrap; font-weight: 500;
+}
+.crumbs button:hover { background: var(--surface-2); color: var(--fg); }
+.crumbs button[aria-current="location"] { color: var(--fg); }
+.crumbs button svg { width: 14px; height: 14px; }
+.crumbs .sep { color: var(--fg-4); font-size: 12px; }
+
+.workdir { position: relative; }
+.workdir .rows { min-height: 120px; }
+.workdir .row { padding: 9px 16px; }
+.workdir .row .ico { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--surface-2); color: var(--fg-3); flex: none; }
+.workdir .row .ico svg { width: 15px; height: 15px; }
+.workdir .row .ico.dir { background: var(--accent-soft); color: var(--accent-text); }
+.workdir .row .meta { font: 11.5px var(--mono); color: var(--fg-4); white-space: nowrap; }
+.workdir .row .meta.size { width: 72px; text-align: right; color: var(--fg-3); }
+.workdir .row .meta.when { width: 96px; text-align: right; }
+.workdir a.row, .workdir button.row { width: 100%; border-left: 0; border-right: 0; border-bottom: 0; background: none; text-align: left; cursor: pointer; transition: background 140ms var(--ease); }
+.workdir .row:first-child { border-top: 0; }
+.workdir a.row:hover, .workdir button.row:hover { background: var(--surface-2); }
+.workdir .row .go { width: 15px; height: 15px; color: var(--fg-4); opacity: 0; transition: opacity 140ms var(--ease); }
+.workdir .row:hover .go { opacity: 1; }
+
+.drop {
+  display: flex; align-items: center; gap: 14px; margin: 0 16px 16px; padding: 14px 16px; border-radius: var(--r);
+  border: 1px dashed var(--line-2); background: color-mix(in srgb, var(--surface-2) 50%, transparent); color: var(--fg-3); font-size: 12.5px;
+  transition: border-color 150ms var(--ease), background 150ms var(--ease);
+}
+.drop .ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--surface-3); color: var(--fg-2); flex: none; }
+.drop .ico svg { width: 16px; height: 16px; }
+.drop b { display: block; color: var(--fg); font-weight: 500; font-size: 13px; }
+.drop .btn { margin-left: auto; }
+.workdir[data-dragging="true"] .drop { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+.workdir[data-dragging="true"]::after {
+  content: ""; position: absolute; inset: 0; border-radius: var(--r); box-shadow: inset 0 0 0 2px var(--accent); pointer-events: none;
+}
+
+.calm { display: grid; justify-items: center; gap: 10px; padding: 44px 16px; text-align: center; }
+.calm .ring { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; border: 1px solid var(--line-2); background: var(--surface-2); color: var(--fg-3); }
+.calm .ring svg { width: 20px; height: 20px; }
+.calm b { font-size: 14px; font-weight: 600; }
+.calm p { max-width: 380px; color: var(--fg-3); font-size: 13px; }
+
+.kept { display: grid; }
+.kept-task { display: grid; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.kept-task:first-child { border-top: 0; }
+.kept-task header { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.kept-task header .ask { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kept-task header .when { font: 11.5px var(--mono); color: var(--fg-4); white-space: nowrap; }
+.kept-task .files { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }

@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Keeps the Pine Computer SDKs, Next.js and React current.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      pine-computer:
+        patterns: ["@pinesandbox/*"]
+    ignore:
+      # The Node.js types follow the Node.js line the app runs on (.nvmrc).
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

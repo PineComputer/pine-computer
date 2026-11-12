@@ -1,0 +1,41 @@
+/* The vault: how a secret travels, a form to add one, and the names (never the values). */
+
+.how { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.how-step { display: grid; gap: 8px; align-content: start; padding: 16px; border-radius: var(--r); border: 1px solid var(--line); background: var(--surface); }
+.how-step .ico { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-text); }
+.how-step .ico svg { width: 16px; height: 16px; }
+.how-step b { font-size: 13.5px; font-weight: 600; }
+.how-step p { font-size: 12.5px; color: var(--fg-3); }
+
+.example {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-sm);
+  border: 1px solid var(--line); background: var(--bg); font: 12.5px/1.6 var(--mono); color: var(--fg-2); overflow-x: auto;
+}
+.example .label { font: 500 11px var(--sans); text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-4); white-space: nowrap; }
+.example code { white-space: nowrap; }
+.example .var { color: var(--accent-text); }
+
+.vault-form { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 14px; }
+.vault-form .wide { grid-column: 1 / -1; }
+.vault-form .foot { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
+.vault-form .foot .hint { font-size: 12px; color: var(--fg-3); }
+.vault-form .foot .btn { margin-left: auto; }
+.vault-form .field .err { font-size: 12px; color: var(--bad); }
+.vault-form .field .note { font-size: 12px; color: var(--human); }
+
+.reveal { position: relative; }
+.reveal .input { padding-right: 38px; }
+.reveal .btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+
+.secret .ico { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--surface-2); color: var(--fg-3); flex: none; }
+.secret .ico svg { width: 14px; height: 14px; }
+.secret .name { display: inline-flex; align-items: center; gap: 4px; font: 500 13px var(--mono); }
+.secret .name .btn { opacity: 0; transition: opacity 140ms var(--ease); }
+.secret:hover .name .btn, .secret .name .btn:focus-visible { opacity: 1; }
+.secret .when { font: 11.5px var(--mono); color: var(--fg-4); white-space: nowrap; }
+.secret .masked { font: 12px var(--mono); color: var(--fg-4); letter-spacing: 0.12em; }
+
+@media (max-width: 860px) {
+  .how, .vault-form { grid-template-columns: minmax(0, 1fr); }
+  .secret .masked { display: none; }
+}

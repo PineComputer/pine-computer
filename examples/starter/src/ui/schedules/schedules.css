@@ -1,0 +1,51 @@
+/* Schedules: one card to make one, then a card for each. */
+
+.sched-list { display: grid; gap: 10px; }
+.sched-skeleton { height: 112px; background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%); background-size: 200% 100%; animation: shimmer 1.6s linear infinite; }
+
+.sched-compose { animation: rise 260ms var(--ease); }
+.sched-compose.first { border-color: color-mix(in srgb, var(--accent) 30%, transparent); background: linear-gradient(180deg, var(--accent-soft), transparent 140px), var(--surface); }
+.sched-form { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 12px; }
+.sched-compose-bar { display: flex; align-items: center; gap: 8px; padding-top: 4px; }
+.sched-preview { display: inline-flex; align-items: center; gap: 8px; margin-right: auto; font-size: 12.5px; color: var(--fg-3); }
+.sched-preview b { color: var(--fg); font-weight: 500; }
+
+.cadence { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.cadence .seg { display: inline-flex; padding: 3px; border-radius: 9px; background: var(--bg); border: 1px solid var(--line-2); }
+.cadence .seg button { height: 28px; padding: 0 12px; border: 0; border-radius: 6px; background: none; font-size: 12.5px; color: var(--fg-3); cursor: pointer; transition: background 140ms var(--ease), color 140ms var(--ease); }
+.cadence .seg button:hover { color: var(--fg); }
+.cadence .seg button:is([aria-selected="true"], [aria-checked="true"]) { background: var(--surface-3); color: var(--fg); }
+.cadence .seg.pills button { font-family: var(--mono); font-size: 12px; padding: 0 10px; }
+.cadence .seg.pills button[aria-checked="true"] { background: var(--accent); color: var(--accent-ink); }
+.cadence-daily { display: inline-flex; align-items: center; gap: 14px; }
+.cadence-daily .input { width: 120px; }
+.cadence-weekdays { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg-2); cursor: pointer; }
+
+.sched-card { overflow: hidden; transition: opacity 200ms var(--ease), border-color 200ms var(--ease); animation: rise 260ms var(--ease); }
+.sched-card:hover { border-color: var(--line-2); }
+.sched-card[data-off] .sched-text, .sched-card[data-off] .sched-foot { opacity: 0.55; }
+.sched-main { display: flex; align-items: flex-start; gap: 14px; padding: 16px 16px 14px; }
+.sched-main > .switch { margin-top: 2px; }
+.sched-text { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.sched-text h3 { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sched-goal { font-size: 13px; color: var(--fg-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.sched-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.sched-acts { display: flex; gap: 4px; flex: none; }
+.sched-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--bg-elev); font-size: 12.5px; }
+.sched-foot b { font-weight: 500; }
+.sched-error { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; color: var(--bad); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sched-error svg { flex: none; }
+.sched-link { color: var(--accent-text); text-decoration: underline; text-underline-offset: 3px; }
+
+.sched-empty { display: grid; justify-items: center; gap: 12px; padding: 48px 24px; text-align: center; }
+.sched-empty-mark { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 15px; background: var(--accent-soft); color: var(--accent-text); }
+.sched-empty-mark svg { width: 22px; height: 22px; }
+.sched-empty h2 { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+.sched-empty p { max-width: 420px; color: var(--fg-3); font-size: 13.5px; }
+
+@media (max-width: 760px) {
+  .sched-form { grid-template-columns: minmax(0, 1fr); }
+  .sched-main { flex-wrap: wrap; }
+  .sched-acts { width: 100%; justify-content: flex-end; }
+  .sched-compose-bar { flex-wrap: wrap; }
+}
