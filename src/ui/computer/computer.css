@@ -1,0 +1,92 @@
+/* The Computer page: its sandbox up top, then settings, capabilities, passkeys,
+   a health check and the danger zone. */
+
+.cv-stack { display: grid; gap: 16px; }
+
+/* Sandbox: the state, big, with the idle clock and the actions beside it. */
+.cv-sandbox { overflow: hidden; }
+.cv-sandbox-top {
+  position: relative; display: flex; align-items: center; gap: 20px; padding: 22px 20px;
+  border-bottom: 1px solid var(--line);
+  background: radial-gradient(80% 140% at 0% 0%, var(--accent-soft), transparent 60%);
+}
+.cv-sandbox-top[data-tone="bad"] { background: radial-gradient(80% 140% at 0% 0%, var(--bad-soft), transparent 60%); }
+.cv-sandbox-top[data-tone="paused"], .cv-sandbox-top[data-tone="busy"] { background: radial-gradient(80% 140% at 0% 0%, color-mix(in srgb, var(--info) 12%, transparent), transparent 60%); }
+.cv-sandbox-top[data-tone="none"] { background: none; }
+.cv-state { display: grid; gap: 8px; min-width: 0; flex: 1; }
+.cv-state-word { display: flex; align-items: center; gap: 12px; font-size: 26px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.1; }
+.cv-state-word .dot { width: 10px; height: 10px; }
+.cv-state-sub { font-size: 13px; color: var(--fg-3); }
+.cv-life { display: grid; gap: 6px; max-width: 360px; }
+.cv-life .meter { height: 4px; }
+.cv-life span { font: 12px var(--mono); color: var(--fg-2); }
+.cv-actions { display: flex; gap: 8px; flex: none; }
+
+.cv-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cv-fact { display: grid; gap: 4px; padding: 14px 20px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 0; }
+.cv-fact:nth-child(3n) { border-right: 0; }
+.cv-fact dt { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-4); }
+.cv-fact dd { display: flex; align-items: center; gap: 6px; font-size: 13.5px; min-width: 0; }
+.cv-fact dd .mono { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-fact .copy { color: var(--fg-4); }
+
+.cv-notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+.cv-note { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; padding: 14px 20px; font-size: 12.5px; color: var(--fg-3); }
+.cv-note + .cv-note { border-left: 1px solid var(--line); }
+.cv-note svg { width: 15px; height: 15px; margin-top: 1px; color: var(--fg-2); }
+.cv-note b { color: var(--fg); font-weight: 600; }
+.cv-problem { margin: 0 20px 16px; }
+
+/* Settings. */
+.cv-policy { display: flex; flex-wrap: wrap; gap: 6px; }
+.cv-save { display: flex; align-items: center; gap: 10px; }
+.cv-save small { font-size: 12px; color: var(--fg-3); }
+
+/* What it can do. */
+.cv-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.cv-feature { display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--bg); }
+.cv-feature b { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; }
+.cv-feature b svg { width: 13px; height: 13px; color: var(--accent-text); flex: none; }
+.cv-feature span { font-size: 12.5px; color: var(--fg-3); }
+.cv-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cv-table th { text-align: left; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-4); padding: 0 12px 8px 0; border-bottom: 1px solid var(--line); }
+.cv-table td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line); vertical-align: middle; color: var(--fg-2); }
+.cv-table tr:last-child td { border-bottom: 0; }
+.cv-table td.value { font: 500 12.5px var(--mono); color: var(--fg); white-space: nowrap; text-align: right; padding-right: 0; }
+.cv-table td.tags { white-space: nowrap; }
+.cv-table td.tags .badge + .badge { margin-left: 4px; }
+.cv-subhead { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-4); }
+
+/* Passkeys. */
+.cv-key { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--surface-3); color: var(--fg-2); flex: none; }
+.cv-key svg { width: 15px; height: 15px; }
+.cv-key.pending { background: var(--human-soft); color: var(--human); }
+
+/* Health check. */
+.cv-assessment { display: grid; gap: 10px; padding: 14px; border-radius: var(--r-sm); border: 1px solid var(--line-2); background: var(--bg); animation: rise 260ms var(--ease); }
+.cv-assessment header { display: flex; align-items: center; gap: 8px; }
+.cv-assessment header strong { font-size: 13.5px; font-weight: 600; }
+.cv-evidence { padding: 10px 12px; border-radius: var(--r-xs); background: var(--surface-2); font: 12px/1.55 var(--mono); color: var(--fg-2); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow-y: auto; }
+.cv-fixes { list-style: none; display: grid; gap: 6px; }
+.cv-fixes li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 8px; font-size: 13px; color: var(--fg-2); }
+.cv-fixes li svg { width: 14px; height: 14px; margin-top: 3px; color: var(--accent-text); }
+.cv-checking { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--fg-2); }
+
+/* The danger zone. */
+.cv-danger { border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+.cv-danger .card-head h2 { color: var(--bad); }
+.cv-danger-row { display: flex; align-items: center; gap: 16px; }
+.cv-danger-row p { flex: 1; font-size: 13px; color: var(--fg-2); }
+
+.cv-empty { display: grid; justify-items: center; gap: 12px; padding: 64px 20px; text-align: center; }
+.cv-empty .ring { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg-3); }
+.cv-empty h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+.cv-empty p { color: var(--fg-3); font-size: 13.5px; max-width: 420px; }
+
+@media (max-width: 860px) {
+  .cv-sandbox-top { flex-direction: column; align-items: flex-start; }
+  .cv-facts, .cv-features { grid-template-columns: minmax(0, 1fr); }
+  .cv-fact { border-right: 0; }
+  .cv-notes { grid-template-columns: minmax(0, 1fr); }
+  .cv-note + .cv-note { border-left: 0; border-top: 1px solid var(--line); }
+}
