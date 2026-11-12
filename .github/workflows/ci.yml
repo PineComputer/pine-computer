@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Mondays: the same checks against the newest SDKs on the supported line.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Build and check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # On the schedule, move to the newest SDKs the declared ranges allow, to hear of a break before users do.
+      - if: github.event_name == 'schedule'
+        run: npm update @pinesandbox/computer @pinesandbox/computer-web && npm ls @pinesandbox/computer @pinesandbox/computer-web
+      - run: npm run build
+      - run: npm run check
+        env:
+          PINE_COMPUTER_HOME: ${{ runner.temp }}/pine-computer
+      - name: The CLI starts without the optional Postgres driver
+        run: npm uninstall --no-save pg && node dist/cli.js --help
+      - name: Build the DeepSeek Harness plugin, which bundles the core
+        working-directory: plugins/deepseek-harness
+        run: npm ci && npm run build

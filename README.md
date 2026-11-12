@@ -81,7 +81,9 @@ your product or your agent hands a job to.
 This repository is the open-source way in. It holds:
 
 - **`pine-computer`**, a CLI that puts one Computer behind the protocols agent apps already speak;
-- **a skill** that teaches an agent when and how to hand work over ([`skills/pine-computer`](skills/pine-computer/SKILL.md));
+- **two skills**: one teaches an agent when and how to hand work over
+  ([`skills/pine-computer`](skills/pine-computer/SKILL.md)), one teaches a coding agent to build Pine Computer
+  into a product with the SDKs ([`skills/pine-computer-sdk`](skills/pine-computer-sdk/SKILL.md));
 - **plugins** for the agent apps that have their own plugin system ([`plugins/`](plugins/));
 - **examples**: real products built on it ([`examples/`](examples/)).
 
@@ -202,6 +204,15 @@ it a job, embed its live screen, take the controls, bring the work back.
 
 The [starter](examples/starter/) is the shortest path from the SDK to a
 product.
+
+The SDKs are versioned and released on their own, and their packages are named `pinesandbox`. This
+repository works with the SDK's `0.3` line: `@pinesandbox/computer` 0.3.5 or newer, `@pinesandbox/computer-web`
+0.3.8 or newer. Each SDK package carries the guide for its own version, which is what the
+[`pine-computer-sdk`](skills/pine-computer-sdk/SKILL.md) skill sends a coding agent to read.
+
+A Computer also has skills of its own: ways of working its agent learns, or that you teach it, and that stay
+with the Computer. Those are part of the product, managed through the SDK, and are not the skills in this
+repository.
 
 ## Status
 
