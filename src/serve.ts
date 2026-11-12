@@ -116,6 +116,9 @@ export async function serve(): Promise<void> {
     const server = app.listen(PORT, HOST, (error?: Error) => (error ? reject(error) : resolve()));
     server.on("error", reject);
   });
+  // As a container's first process, Node ignores a stop signal unless something listens for it. Leaving is
+  // safe at any moment: a job is written down before it is sent, and the next process picks it up.
+  for (const signal of ["SIGTERM", "SIGINT"] as const) process.once(signal, () => process.exit(0));
   console.log(`Serving Pine Computer "${process.env.PINE_COMPUTER || "default"}" on ${origin}`);
   console.log(`  MCP   ${origin}/mcp`);
   console.log(`  A2A   ${origin}/${AGENT_CARD_PATH}`);
