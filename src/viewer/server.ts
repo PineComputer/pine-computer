@@ -17,7 +17,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, existingSession, bound, sessionsOf, type ComputerView } from "../core/computer.js";
 import { at, log } from "../core/home.js";
-import { inScope, local, scope, signature, type Scope } from "../core/store.js";
+import { inScope, local, scope, type Scope } from "../core/store.js";
 import { readThread, titlesOf } from "../core/thread.js";
 import { page } from "./page.js";
 
@@ -25,13 +25,17 @@ const PORT = Number(process.env.PINE_VIEWER_PORT ?? 4777);
 const ORIGIN = `http://127.0.0.1:${PORT}`;
 /** The origin of a serve process that hosts the pages itself. */
 let hosted: string | null = null;
-/** On a service for many projects: a project's scope, from the name its links carry. */
-let projects: ((project: string) => Scope) | null = null;
+/** On a service for many projects (src/hosted): a project's scope from the name its links carry, and their signing. */
+interface Many {
+  scopeOf(project: string): Scope;
+  sign(...names: string[]): string;
+}
+let many: Many | null = null;
 
 /** Pages and files are served by this process, at this origin. */
-export function hostViewer(origin: string, scopeOf?: (project: string) => Scope): void {
+export function hostViewer(origin: string, projects?: Many): void {
   hosted = origin.replace(/\/+$/, "");
-  projects = scopeOf ?? null;
+  many = projects ?? null;
 }
 
 /**
@@ -41,7 +45,7 @@ export function hostViewer(origin: string, scopeOf?: (project: string) => Scope)
  */
 async function grant(...names: string[]): Promise<string> {
   const project = scope()?.project;
-  return project ? `${project}.${signature(project, ...names)}` : key();
+  return project && many ? `${project}.${many.sign(project, ...names)}` : key();
 }
 const APP = "pine-computer-bridge";
 const CLI = fileURLToPath(new URL("../cli.js", import.meta.url));
@@ -125,7 +129,7 @@ const webDir = path.dirname(fileURLToPath(import.meta.resolve("@pinesandbox/comp
 /** The pages' routes, for a server that hosts them (`serve`). */
 export async function handleViewer(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
-    await handle(req, res, projects ? null : await key());
+    await handle(req, res, many ? null : await key());
   } catch (error) {
     log("viewer:", error);
     send(res, 500, { error: (error as Error).message });
@@ -157,11 +161,11 @@ async function handle(req: IncomingMessage, res: ServerResponse, secret: string 
 
   // A project's link: it must be signed for exactly what this request reaches, and the rest runs as that project.
   const [project, signed] = (parts[0] ?? "").split(".");
-  if (projects) {
+  if (many) {
     const names = kind === "files" ? ["files", computer ?? ""] : kind === "api" ? ["desktop", String(body.computer ?? ""), String(body.session ?? "")] : ["desktop", computer ?? "", session ?? ""];
-    const expected = Buffer.from(project && signed ? signature(project, ...names) : "");
+    const expected = Buffer.from(project && signed ? many.sign(project, ...names) : "");
     if (!signed || expected.length !== signed.length || !timingSafeEqual(expected, Buffer.from(signed))) return send(res, 404, { error: "Not found" });
-    return inScope(projects(project), () => route(req, res, parts, body, true));
+    return inScope(many.scopeOf(project), () => route(req, res, parts, body, true));
   }
   if (parts[0] !== secret) return send(res, 404, { error: "Not found" });
   return route(req, res, parts, body, false);
@@ -196,7 +200,18 @@ async function route(req: IncomingMessage, res: ServerResponse, parts: string[],
     const file = thread?.history.flatMap((x) => x.files).findLast((f) => path.basename(f) === session);
     const body = file ? await readFile(file).catch(() => null) : null;
     if (!body) return send(res, 404, { error: "Not found" });
-    res.writeHead(200, { "content-type": mediaType(session), "content-disposition": `inline; filename*=UTF-8''${encodeURIComponent(session)}`, "cache-control": "no-store" });
+    // A job can make any file, and this origin also serves the desktop pages. A file that can run script
+    // (HTML, SVG) is downloaded, never shown here, and nothing shown here may run script or be framed.
+    const type = mediaType(session);
+    const shown = /^(application\/pdf|image\/(png|jpeg|gif|webp)|text\/(plain|markdown|csv)|video\/mp4|audio\/mpeg)/.test(type);
+    res.writeHead(200, {
+      "content-type": shown ? type : "application/octet-stream",
+      "content-disposition": `${shown ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(session)}`,
+      // A browser won't open a PDF in a sandboxed page, and a PDF runs no script on this origin.
+      ...(type === "application/pdf" ? {} : { "content-security-policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; media-src 'self'" }),
+      "x-content-type-options": "nosniff",
+      "cache-control": "no-store",
+    });
     return void res.end(body);
   }
   if (kind !== "api") return send(res, 404, { error: "Not found" });

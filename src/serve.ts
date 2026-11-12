@@ -14,9 +14,8 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import express, { type Request, type RequestHandler, type Response } from "express";
 import { agentCard, PineExecutor } from "./a2a/agent.js";
 import { aguiHandler } from "./agui/agent.js";
-import { Client } from "@pinesandbox/computer";
 import { at, log } from "./core/home.js";
-import { inScope, local, projectOf, ready, scoped, signature, type Scope } from "./core/store.js";
+import { inScope, local, scoped } from "./core/store.js";
 import { mcpServer } from "./mcp/server.js";
 import { handleViewer, hostViewer } from "./viewer/server.js";
 
@@ -36,64 +35,21 @@ async function token(): Promise<string> {
 /** Every caller with the token is the same app, so A2A's per-user task scope is one scope. */
 const APP: User = { isAuthenticated: true, userName: "app" };
 
-/**
- * PINE_HOSTED=1: the service is for every project, not one. The bearer token is the caller's own project key,
- * and each request runs in that project's scope. The key is checked with the platform once, and never stored.
- */
-const HOSTED = process.env.PINE_HOSTED === "1";
-const known = new Map<string, Promise<Scope | null>>();
-const seen = new Map<string, Scope>();
-
-/**
- * A project's scope for a link that names it. The link is signed, so the project is real; a process that hasn't
- * seen its key yet works from the Computer's own records, which is enough to show a desktop and take its controls.
- */
-const scopeOf = (project: string): Scope => seen.get(project) ?? { project, client: new Client({ endpoint: process.env.PINE_SANDBOX_ENDPOINT ?? "", apiKey: "pk_none" }) };
-
-function projectFor(key: string): Promise<Scope | null> {
-  const project = projectOf(key);
-  let found = known.get(project);
-  if (!found) {
-    const client = new Client({ endpoint: process.env.PINE_SANDBOX_ENDPOINT ?? "", apiKey: key });
-    found = client.projectPolicy().then(
-      () => {
-        const s = { project, client };
-        seen.set(project, s);
-        return s;
-      },
-      (error: Error & { status?: number }) => {
-        known.delete(project);
-        if (error.status === 401 || error.status === 403) return null;
-        throw error;
-      },
-    );
-    // Bounded: a caller trying keys can't grow it without end.
-    if (known.size >= 5000) {
-      const oldest = known.keys().next().value!;
-      known.delete(oldest);
-      seen.delete(oldest);
-    }
-    known.set(project, found);
-  }
-  return found;
-}
-
 export async function serve(): Promise<void> {
   const origin = (process.env.PINE_PUBLIC_URL ?? `http://${HOST === "0.0.0.0" ? "127.0.0.1" : HOST}:${PORT}`).replace(/\/+$/, "");
-  if (HOSTED && !process.env.PINE_SANDBOX_ENDPOINT) throw new Error("PINE_HOSTED needs PINE_SANDBOX_ENDPOINT: the platform every project's key is for.");
-  await ready();
-  if (HOSTED) signature("check");
-  const expected = Buffer.from(HOSTED ? "" : await token());
-  hostViewer(origin, HOSTED ? scopeOf : undefined);
+  // PINE_HOSTED=1: one service for many projects, each by its own key. See src/hosted.
+  const many = process.env.PINE_HOSTED === "1" ? await (await import("./hosted/index.js")).hosted() : null;
+  const expected = Buffer.from(many ? "" : await token());
+  hostViewer(origin, many ?? undefined);
 
   const auth: RequestHandler = async (req, res, next) => {
     const sent = req.get("authorization") ?? "";
     const given = Buffer.from(/^Bearer (.+)$/i.exec(sent)?.[1] ?? "");
-    if (HOSTED) {
+    if (many) {
       // Some chat apps send their key field as the whole header.
       const key = given.toString() || sent.trim();
       try {
-        const project = key ? await projectFor(key) : null;
+        const project = key ? await many.project(key) : null;
         if (project) return inScope(project, () => {
           res.locals.project = project.project;
           next();
@@ -123,7 +79,7 @@ export async function serve(): Promise<void> {
     legacyAgentCardRouter({ agentCardProvider: async () => card }),
     agentCardHandler({ agentCardProvider: async () => AgentCard.toJSON(card) as AgentCard }),
   );
-  app.use("/a2a", auth, jsonRpcHandler({ requestHandler: a2a, userBuilder: async (req) => (HOSTED ? { isAuthenticated: true, userName: String((req as Request).res?.locals.project) } : APP), legacyCompat: { enabled: true } }));
+  app.use("/a2a", auth, jsonRpcHandler({ requestHandler: a2a, userBuilder: async (req) => (many ? { isAuthenticated: true, userName: String((req as Request).res?.locals.project) } : APP), legacyCompat: { enabled: true } }));
 
   // AG-UI: one POST per run, answered with a stream of events. A message may carry the person's files inline.
   app.post("/agui", auth, express.json({ limit: "32mb" }), aguiHandler());
@@ -164,5 +120,5 @@ export async function serve(): Promise<void> {
   console.log(`  MCP   ${origin}/mcp`);
   console.log(`  A2A   ${origin}/${AGENT_CARD_PATH}`);
   console.log(`  AG-UI ${origin}/agui`);
-  console.log(HOSTED ? "  Token each caller's own project key" : `  Token PINE_SERVE_TOKEN, or the one in ${at("serve.json")}`);
+  console.log(many ? "  Token each caller's own project key" : `  Token PINE_SERVE_TOKEN, or the one in ${at("serve.json")}`);
 }

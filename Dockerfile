@@ -5,7 +5,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
-RUN npm run build && npm prune --omit=dev
+# `pg` is an optional peer of the CLI; the hosted image always has it.
+RUN npm run build && npm prune --omit=dev && npm install --no-save pg
 
 FROM node:22-bookworm-slim
 WORKDIR /app
