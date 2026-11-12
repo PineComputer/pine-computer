@@ -1,0 +1,36 @@
+# Checks every pull request, and every merge to main through the release workflow, which runs
+# this one first: the typecheck and tests, then the packaged app started on Linux to see it
+# runs (scripts/smoke-desktop.mjs).
+name: CI
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node scripts/desktop.mjs
+      - run: npx electron-builder --config electron-builder.config.mjs --linux dir --publish never
+      - run: xvfb-run -a node scripts/smoke-desktop.mjs release/linux-unpacked/pine-drama-studio
