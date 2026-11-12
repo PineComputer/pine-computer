@@ -175,16 +175,21 @@ Then ask for something that needs a computer:
 
 ## Built on Pine Computer
 
-Real products, each with its own model, logic and interface:
+Real products, each with its own model, logic and interface. Their whole source is in
+[`examples/`](examples/): open a folder and run it.
 
-- **[Pine Computer starter](https://github.com/PineComputer/pine-computer-starter)**: a complete product to
-  rename and ship. Sessions side by side, the work live, the controls, skills, a vault, files in and out.
-- **[Pine Drama Studio](https://github.com/PineComputer/open-pinedrama)**: a studio for makers of AI
-  vertical short dramas.
-- **Pine Computer × Tavus**: a video agent takes a customer's call and hands the claim to a Pine Computer,
-  which files it while they talk. Opening soon.
+| | |
+| --- | --- |
+| [**Starter**](examples/starter/) | A complete product to rename and ship: sessions side by side, the work live, the controls, skills, a vault, files in and out. Start here. |
+| [**Drama Studio**](examples/drama-studio/) | A studio for makers of AI vertical short dramas: agents, each on its own Computer, take a screenplay to a cut, and you review where they ask. |
+| [**Tavus video agent**](examples/tavus-video-agent/) | A video agent takes a customer's call and hands the claim to a Pine Computer, which files it while they talk. |
+| [**Among Minds**](examples/among-minds/) | A habitat for artificial minds: four AIs, each with a permanent Computer of its own. |
 
-More in [`examples/`](examples/).
+<p align="center">
+  <img src="examples/starter/docs/screenshot.jpg" alt="The starter: the agent's work and answer on the left, the Computer's live screen on the right" width="100%">
+  <br>
+  <sub>The starter: the agent's work on the left, the Computer's live screen on the right.</sub>
+</p>
 
 ## Build it into your product
 
@@ -195,7 +200,7 @@ it a job, embed its live screen, take the controls, bring the work back.
 - Web SDK, the live desktop in your page: [`@pinesandbox/computer-web`](https://www.npmjs.com/package/@pinesandbox/computer-web)
 - Every SDK and the full guide: [developer docs](https://console.pinecomputer.io/docs)
 
-The [starter](https://github.com/PineComputer/pine-computer-starter) is the shortest path from the SDK to a
+The [starter](examples/starter/) is the shortest path from the SDK to a
 product.
 
 ## Status

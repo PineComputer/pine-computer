@@ -12,7 +12,7 @@ most of all an integration with an agent app we haven't covered.
 | `src/viewer/` | The live desktop pages. |
 | `skills/pine-computer/` | The skill: when and how an agent hands work over. |
 | `plugins/` | One folder per agent app that has its own plugin system. |
-| `examples/` | Products built on Pine Computer. |
+| `examples/` | Whole products built on Pine Computer, brought in from their own repositories with `git subtree`. Change them there, then pull. |
 | `docs/cli.md` | The CLI reference. |
 
 ## Build and check
