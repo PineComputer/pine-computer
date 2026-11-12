@@ -17,6 +17,8 @@ Built on the SDKs: the product creates a Computer, hands it a job, shows its scr
 
 ![The starter: the agent's work and answer on the left, the Computer's live screen on the right](starter/docs/screenshot.jpg)
 
+![The Tavus video agent, from a recorded call: the video agent on the left, every handoff in the middle, the Computer's desktop with the submitted claim on the right](tavus-video-agent/docs/film.jpg)
+
 ## In an agent workspace
 
 The Computer as a tool: the workspace's own agent stays in charge and hands over the computer work.
