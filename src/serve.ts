@@ -1,7 +1,8 @@
 // `pine-computer serve`: the Computer over HTTP, for web apps, hosted chat apps and agent platforms that
 // can't start a process on this machine. One origin serves MCP (Streamable HTTP) at /mcp, the A2A agent at
-// /a2a with its card at /.well-known/agent-card.json, and the desktop pages and the jobs' files. /mcp and /a2a
-// take a bearer token; the pages and files carry a key in their address, like a share link.
+// /a2a with its card at /.well-known/agent-card.json, the AG-UI agent at /agui, and the desktop pages and the
+// jobs' files. /mcp, /a2a and /agui take a bearer token; the pages and files carry a key in their address,
+// like a share link.
 
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { AGENT_CARD_PATH, AgentCard } from "@a2a-js/sdk";
@@ -12,6 +13,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import express, { type Request, type RequestHandler, type Response } from "express";
 import { agentCard, PineExecutor } from "./a2a/agent.js";
+import { aguiHandler } from "./agui/agent.js";
 import { at, readJson, writeJson } from "./core/home.js";
 import { mcpServer } from "./mcp/server.js";
 import { handleViewer, hostViewer } from "./viewer/server.js";
@@ -46,7 +48,7 @@ export async function serve(): Promise<void> {
 
   const app = express();
   app.disable("x-powered-by");
-  app.get("/health", (_req, res) => void res.json({ app: "pine-computer", serves: ["mcp", "a2a", "desktop"] }));
+  app.get("/health", (_req, res) => void res.json({ app: "pine-computer", serves: ["mcp", "a2a", "agui", "desktop"] }));
 
   // A2A: the card is public, so a client can find out how to authenticate; the agent takes the token.
   const card = agentCard(origin);
@@ -60,6 +62,9 @@ export async function serve(): Promise<void> {
     agentCardHandler({ agentCardProvider: async () => AgentCard.toJSON(card) as AgentCard }),
   );
   app.use("/a2a", auth, jsonRpcHandler({ requestHandler: a2a, userBuilder: async () => APP, legacyCompat: { enabled: true } }));
+
+  // AG-UI: one POST per run, answered with a stream of events. A message may carry the person's files inline.
+  app.post("/agui", auth, express.json({ limit: "32mb" }), aguiHandler());
 
   // MCP: a server of its own per client session; the jobs belong to the process.
   const sessions = new Map<string, StreamableHTTPServerTransport>();
@@ -94,5 +99,6 @@ export async function serve(): Promise<void> {
   console.log(`Serving Pine Computer "${process.env.PINE_COMPUTER || "default"}" on ${origin}`);
   console.log(`  MCP   ${origin}/mcp`);
   console.log(`  A2A   ${origin}/${AGENT_CARD_PATH}`);
+  console.log(`  AG-UI ${origin}/agui`);
   console.log(`  Token PINE_SERVE_TOKEN, or the one in ${at("serve.json")}`);
 }

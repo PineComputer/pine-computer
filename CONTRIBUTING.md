@@ -9,7 +9,7 @@ most of all an integration with an agent app we haven't covered.
 | --- | --- |
 | `src/core/` | The one core: a Computer, its threads, where their files go. Every way in uses it. |
 | `src/jobs.ts` | The jobs a tool-shaped way in has handed over, and how one reports. Shared by the MCP tools and the plugins. |
-| `src/mcp/`, `src/a2a/`, `src/acp/` | One thin adapter per protocol. No job logic lives here. |
+| `src/mcp/`, `src/a2a/`, `src/acp/`, `src/agui/` | One thin adapter per protocol. No job logic lives here. |
 | `src/viewer/` | The live desktop pages. |
 | `skills/pine-computer/` | The skill: when and how an agent hands work over. |
 | `plugins/` | One folder per agent app that has its own plugin system. |
@@ -25,6 +25,7 @@ npm install
 npm run build
 node scripts/mcp-smoke.mjs "Open https://example.com and tell me its heading."
 node scripts/a2a-smoke.mjs "Open https://example.com and tell me its heading."
+node scripts/agui-smoke.mjs "Open https://example.com and tell me its heading."
 node scripts/acp-smoke.mjs "Open https://example.com and tell me its heading."
 ```
 
@@ -33,7 +34,7 @@ jobs on a real Computer.
 
 ## Adding an integration
 
-- **The app speaks MCP, A2A or ACP:** it likely works already. Add its set-up steps to `docs/cli.md`, and
+- **The app speaks MCP, A2A, AG-UI or ACP:** it likely works already. Add its set-up steps to `docs/cli.md`, and
   say plainly what you ran and what you didn't.
 - **The app has its own plugin system:** add `plugins/<app>/`, built on `src/core/`, exposing the same four
   tools with the same descriptions, and shipping the skill if the app has skills.

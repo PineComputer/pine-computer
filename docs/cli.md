@@ -10,7 +10,7 @@ Four ways in, on one core:
 | | For | What the app sees |
 | --- | --- | --- |
 | `pine-computer mcp` | Agents that call tools: Claude Code, Codex, Cursor, Claude Desktop, the chat apps' MCP panels | Four tools: `computer_task`, `computer_wait`, `computer_cancel`, `computer_desktop` |
-| `pine-computer serve` | Web apps, hosted chat apps and agent platforms, over HTTP | The same MCP tools at `/mcp`, and an A2A agent at `/a2a` with its card |
+| `pine-computer serve` | Web apps, hosted chat apps and agent platforms, over HTTP | The same MCP tools at `/mcp`, an A2A agent at `/a2a` with its card, and an AG-UI agent at `/agui` |
 | `pine-computer acp` | Apps that run agents over the Agent Client Protocol: OpenMausBot, nightly-labs OpenBot, Zed | A bot. Each chat thread is a thread on the Computer; its steps show as tool calls; its summary is the reply |
 | `pine-computer run "…"` | The terminal | One job, its steps as it goes |
 
@@ -146,13 +146,14 @@ In Cursor (`~/.cursor/mcp.json`) or Claude Desktop:
 `pine-computer serve` runs one HTTP process for apps that can't start a process on this machine. It serves:
 - MCP over Streamable HTTP at `/mcp`
 - the A2A agent at `/a2a`, with its card at `/.well-known/agent-card.json`
+- the AG-UI agent at `/agui`
 - the desktop pages and the jobs' files
 
 ```sh
 PINE_COMPUTER=my-app pine-computer serve      # http://127.0.0.1:4778
 ```
 
-`/mcp` and `/a2a` take a bearer token: `PINE_SERVE_TOKEN`, or the one `serve` makes on first start and keeps
+`/mcp`, `/a2a` and `/agui` take a bearer token: `PINE_SERVE_TOKEN`, or the one `serve` makes on first start and keeps
 in `~/.pine-computer/serve.json`. Behind a domain, set `PINE_SERVE_HOST=0.0.0.0` and
 `PINE_PUBLIC_URL=https://…`, so the links in replies and in the card use it.
 
@@ -180,6 +181,41 @@ Clients on A2A 1.0 and on 0.3 are both served.
   its own: its bytes up to 10 MB, a link above that.
 - **Cancel** stops the job, or drops a question it's waiting on.
 
+#### AG-UI
+
+`/agui` is the Computer as an [AG-UI](https://docs.ag-ui.com) agent, a bot of its own, for chat apps that
+add a bot by its address: CopilotKit OpenBot, any CopilotKit app, any AG-UI client. The client posts a run to
+`http://127.0.0.1:4778/agui` with the header `Authorization: Bearer <token>`, and reads the events back as
+server-sent events.
+- **An AG-UI thread is a thread** with its own session on the Computer. A second run on the same thread id
+  carries on in it.
+- **A run is one message.** The last user message is the job, or the answer to the question the last run
+  ended on. Files in it go up to the Computer. System messages, earlier messages, tools and state are not
+  read: the Computer keeps the thread's memory itself.
+- **Steps are tool calls** the Computer has already answered, named after the step (`open_a_page`), with the
+  step's title and kind as arguments and the page it ended on as the result. A step that takes time shows
+  as a call waiting for its result.
+- **The reply is the assistant's message**: the summary, with the files as links. The first run on a thread
+  opens with the desktop link. `RUN_FINISHED` carries `result`: the state, the desktop link, the files and
+  the cost.
+- **A question ends the run** like a reply does (`result.state` is `needs_input`). The person's next
+  message, a new run on the thread, answers it.
+- **A failure** ends in `RUN_ERROR`. So does a run on a thread whose job is still going (`code: "busy"`).
+- **Leaving doesn't cancel.** A client that drops the stream, or stops the run, stops hearing the job; the
+  Computer finishes it and the thread keeps the outcome. A client that leaves at once, before the job
+  has started, starts none.
+
+In CopilotKit OpenBot, from `/bots`: **New Bot**, **Custom agent**, then **An agent you already run**. Under
+"Where can it be reached?" set:
+- **Agent address**: `http://127.0.0.1:4778/agui`, or the public address when OpenBot's server runs
+  elsewhere. It has to be reachable from OpenBot's server.
+- **Key**: `Bearer <token>`. OpenBot sends it as the `Authorization` header with every request.
+
+OpenBot tests the address with a real run before it saves the Bot, and hangs up on the first event; that
+test starts no job. A hosted OpenBot refuses a private address unless `AGENT_ENDPOINT_ALLOWED_HOSTS` lists
+it (`127.0.0.1:4778`). OpenBot ends a turn whose stream stays silent for a minute
+(`AGENT_STALL_TIMEOUT_MS`), so the stream carries a comment line every 15 seconds while a step runs.
+
 ### Any other ACP client
 
 Point it at `pine-computer acp` on stdio. It supports `session/new`, `session/load` (with the thread's
@@ -197,7 +233,7 @@ history replayed), `session/prompt` and `session/cancel`.
 | `PINE_VIEWER_PORT` | `4777` | The desktop page's port on 127.0.0.1. |
 | `PINE_SERVE_HOST`, `PINE_SERVE_PORT` | `127.0.0.1`, `4778` | Where `serve` listens. |
 | `PINE_PUBLIC_URL` | `http://<host>:<port>` | The address `serve` is reached at, for the card and the links in replies. |
-| `PINE_SERVE_TOKEN` | made on first start | The bearer token for `/mcp` and `/a2a`. |
+| `PINE_SERVE_TOKEN` | made on first start | The bearer token for `/mcp`, `/a2a` and `/agui`. |
 | `PINE_COMPUTER_HOME` | `~/.pine-computer` | Where Computers' credentials, threads and the viewer key are kept (this user only). |
 
 `pine-computer status` shows the Computer's state; `pine-computer stop` stops it and keeps its sign-ins;
@@ -210,6 +246,8 @@ history replayed), `session/prompt` and `session/cancel`.
 npm run dev                                              # tsc --watch
 node scripts/acp-smoke.mjs "a job" "a reply" "/reload" "/cancel 8 another job"
 node scripts/mcp-smoke.mjs "a job" "a reply"
+node scripts/a2a-smoke.mjs "a job" "the answer to its question"      # against `pine-computer serve`
+node scripts/agui-smoke.mjs "a job" "the answer, or a follow-up"     # against `pine-computer serve`
 ```
 
 The smoke scripts drive the bridge the way an app does and print every update. `/reload` restarts the
@@ -250,7 +288,19 @@ Nov 9, 2026, `serve` on a real Computer:
   and answered with the story and its points, $0.04 on the Computer.
 - The file links serve only files their thread's history names.
 
-Not yet run inside nightly-labs OpenBot: the configuration above follows its documentation.
+Nov 12, 2026, `serve` on a real Computer, AG-UI with the protocol's own client (`@ag-ui/client` 1.0.4, whose
+`HttpAgent` is what OpenBot dials a bot with; `scripts/agui-smoke.mjs`):
+
+- "Open https://example.com and tell me its heading", then a follow-up about the same page on the same
+  thread: the steps as tool calls, each summary as the assistant's message, 29 s and 6 s, $0.05 in all.
+- The pizza form, ending on a question with `needs_input`; "Yes, submit it." as the next run, then
+  submitted. A second run sent to the thread mid-job got `RUN_ERROR` with `busy`.
+- OpenBot's connection test, replayed by hand (its request, then hanging up on the first event): it got
+  `RUN_STARTED`, and no thread or job was made.
+
+Not yet run inside nightly-labs OpenBot: the configuration above follows its documentation. Not yet run
+inside CopilotKit OpenBot either: the steps above follow its source and documentation, and how its
+transcript draws the steps is read from its source, not seen.
 
 ## Known limits
 
@@ -262,5 +312,8 @@ Not yet run inside nightly-labs OpenBot: the configuration above follows its doc
   their command and read as its own do ("Ran pdfinfo").
 - A job runs inside the process that started it. If that process exits mid-job, the Computer finishes the
   job, and the thread picks up from the agent's state on its next message.
+- AG-UI has no cancel call, and leaving the stream doesn't stop the job. Until the job ends, the thread
+  answers a new run with `busy`. A job whose client left keeps its outcome in the thread, but no later run
+  replays it.
 - `serve` keeps A2A tasks in memory: after a restart a context carries on, but a task from before it is
   unknown. One token covers every caller.

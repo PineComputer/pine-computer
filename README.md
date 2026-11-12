@@ -93,7 +93,7 @@ One core, four doors. Pick the one your app already has.
 | | For | What the app sees |
 | --- | --- | --- |
 | **A tool** · `pine-computer mcp` | Agents that call tools: Claude Code, Codex, Cursor, chat apps with an MCP panel | Four tools: `computer_task`, `computer_wait`, `computer_cancel`, `computer_desktop` |
-| **A hosted tool or agent** · `pine-computer serve` | Web apps and agent platforms, over HTTP | The same tools at `/mcp`, and an A2A agent at `/a2a` with its card |
+| **A hosted tool or agent** · `pine-computer serve` | Web apps and agent platforms, over HTTP | The same tools at `/mcp`, an A2A agent at `/a2a` with its card, and an AG-UI agent at `/agui` |
 | **A coworker** · `pine-computer acp` | Apps that run agents over the Agent Client Protocol: OpenMausBot, nightly-labs OpenBot, Zed | A bot. Each chat thread is a thread on the Computer; its steps show as it works; its summary is the reply |
 | **The terminal** · `pine-computer run "…"` | You | One job, its steps as it goes |
 
@@ -138,7 +138,7 @@ codex mcp add pine-computer -- pine-computer mcp
 
 **DeepSeek Harness**: [`plugins/deepseek-harness`](plugins/deepseek-harness).
 
-**OpenMausBot, nightly-labs OpenBot, hosted MCP and A2A**: [`docs/cli.md`](docs/cli.md).
+**OpenMausBot, nightly-labs OpenBot, CopilotKit OpenBot, hosted MCP, A2A and AG-UI**: [`docs/cli.md`](docs/cli.md).
 
 Then ask for something that needs a computer:
 
@@ -213,6 +213,7 @@ Private beta. What has been run end to end:
 | Codex, over MCP | Run |
 | OpenMausBot, as a coworker (ACP) and as a tool (MCP) | Run |
 | A2A agent and hosted MCP (`pine-computer serve`) | Run against the protocol's own clients |
+| CopilotKit OpenBot, over AG-UI (`pine-computer serve`) | Run against the protocol's own client; not yet run inside OpenBot |
 | Cursor, Claude Desktop, nightly-labs OpenBot | Configuration given, not yet run by us |
 | DeepSeek Harness plugin | Loads in dsh, with its tools and skill registered; no job run through it yet |
 
