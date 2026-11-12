@@ -7,6 +7,8 @@ find it: the claim waits, signed in. When they call back, the PAL picks up the t
 a clear yes, and the Computer submits. The claim number is checked against the portal's own records, and a PDF
 summary comes back.
 
+![A recorded call: Riley, the Tavus PAL, on the left; every handoff between her and the Computer in the middle; the Computer's live desktop with the submitted claim on the right, and the job's six steps under it](docs/film.jpg)
+
 Everything is real except the portal: Pine's server SDK and Web SDK, Tavus's conversation API and interaction
 protocol, and a synthetic support site (`portal/`) that behaves like the real kind.
 
@@ -116,6 +118,7 @@ the steps and the staff view as the trace.
 with both voices.
 
 ```sh
+npm run voice                                                    # once: the customer's lines, into recordings/voice
 npm run record -- --voices recordings/voice --out recordings/take.mp4
 ```
 
@@ -123,6 +126,9 @@ npm run record -- --voices recordings/voice --out recordings/take.mp4
   the lines listed at the top of `scripts/record.mjs`). Each is played into the call as the microphone, so the
   PAL hears and answers it, and each waits until the PAL has finished asking. Without `--voices` the system
   voice reads the lines, which is only good for checking the timing.
+- **`npm run voice` makes the clips** with ElevenLabs (`ELEVENLABS_API_KEY` in `.env.local`): a voice from its
+  library, the lines written the way a person talks, and the sound of a caller's microphone. `--voice <id>`
+  picks another voice. Listen to them before a take; any five WAV files of the lines work as well.
 - **One call by default.** `--callback` has the customer hang up to find the serial number and call back.
 - **`?film` is the page as it is recorded:** no operator's controls, the PAL as a picture filling its panel,
   the desktop edge to edge, and the last two lines of the call under the PAL. The page without `?film` is
