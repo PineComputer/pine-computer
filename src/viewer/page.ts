@@ -118,7 +118,7 @@ export function page({ computer, session, api }: { computer: string; session?: s
     if (ticking) return;
     ticking = true;
     try {
-      const { state, conversations } = await get("/conversations", {});
+      const { state, conversations } = await get("/conversations", { session: pinned ?? "" });
       list = conversations;
       const want = state !== "running" ? null : (chosen ?? list[0]?.name ?? null);
       // Never pull the screen away from a person who has the controls.

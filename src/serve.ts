@@ -16,7 +16,7 @@ import { agentCard, PineExecutor } from "./a2a/agent.js";
 import { aguiHandler } from "./agui/agent.js";
 import { Client } from "@pinesandbox/computer";
 import { at, log } from "./core/home.js";
-import { inScope, local, projectOf, ready, scoped, type Scope } from "./core/store.js";
+import { inScope, local, projectOf, ready, scoped, signature, type Scope } from "./core/store.js";
 import { mcpServer } from "./mcp/server.js";
 import { handleViewer, hostViewer } from "./viewer/server.js";
 
@@ -42,6 +42,13 @@ const APP: User = { isAuthenticated: true, userName: "app" };
  */
 const HOSTED = process.env.PINE_HOSTED === "1";
 const known = new Map<string, Promise<Scope | null>>();
+const seen = new Map<string, Scope>();
+
+/**
+ * A project's scope for a link that names it. The link is signed, so the project is real; a process that hasn't
+ * seen its key yet works from the Computer's own records, which is enough to show a desktop and take its controls.
+ */
+const scopeOf = (project: string): Scope => seen.get(project) ?? { project, client: new Client({ endpoint: process.env.PINE_SANDBOX_ENDPOINT ?? "", apiKey: "pk_none" }) };
 
 function projectFor(key: string): Promise<Scope | null> {
   const project = projectOf(key);
@@ -49,7 +56,11 @@ function projectFor(key: string): Promise<Scope | null> {
   if (!found) {
     const client = new Client({ endpoint: process.env.PINE_SANDBOX_ENDPOINT ?? "", apiKey: key });
     found = client.projectPolicy().then(
-      () => ({ project, client }),
+      () => {
+        const s = { project, client };
+        seen.set(project, s);
+        return s;
+      },
       (error: Error & { status?: number }) => {
         known.delete(project);
         if (error.status === 401 || error.status === 403) return null;
@@ -57,7 +68,11 @@ function projectFor(key: string): Promise<Scope | null> {
       },
     );
     // Bounded: a caller trying keys can't grow it without end.
-    if (known.size >= 5000) known.delete(known.keys().next().value!);
+    if (known.size >= 5000) {
+      const oldest = known.keys().next().value!;
+      known.delete(oldest);
+      seen.delete(oldest);
+    }
     known.set(project, found);
   }
   return found;
@@ -67,8 +82,9 @@ export async function serve(): Promise<void> {
   const origin = (process.env.PINE_PUBLIC_URL ?? `http://${HOST === "0.0.0.0" ? "127.0.0.1" : HOST}:${PORT}`).replace(/\/+$/, "");
   if (HOSTED && !process.env.PINE_SANDBOX_ENDPOINT) throw new Error("PINE_HOSTED needs PINE_SANDBOX_ENDPOINT: the platform every project's key is for.");
   await ready();
+  if (HOSTED) signature("check");
   const expected = Buffer.from(HOSTED ? "" : await token());
-  hostViewer(origin);
+  hostViewer(origin, HOSTED ? scopeOf : undefined);
 
   const auth: RequestHandler = async (req, res, next) => {
     const sent = req.get("authorization") ?? "";

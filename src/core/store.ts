@@ -6,7 +6,7 @@
 // stores sits under its project, so one project can't read another's Computer or threads.
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "node:crypto";
 import { readdir, rm } from "node:fs/promises";
 import type { Client } from "@pinesandbox/computer";
 import { at, readJson, safe, withLock, writeJson } from "./home.js";
@@ -64,13 +64,22 @@ const files: Store = {
 
 const file = (key: Key) => `${at(...key.map(safe))}.json`;
 
+/** PINE_STORE_KEY: what a hosted service seals its records and signs its links with. */
+function storeKey(): Buffer {
+  const secret = Buffer.from(process.env.PINE_STORE_KEY ?? "", "base64");
+  if (secret.length !== 32) throw new Error("A hosted service needs PINE_STORE_KEY: 32 random bytes in base64, which seals what is stored and signs its links.");
+  return secret;
+}
+
+/** A signature over a few names, for a link that grants exactly those and nothing beside them. */
+export const signature = (...names: string[]) => createHmac("sha256", storeKey()).update(JSON.stringify(names)).digest("base64url").slice(0, 27);
+
 /**
  * One table in Postgres. Records hold session tokens, which can run a shell on a Computer, so every value
  * is sealed with PINE_STORE_KEY (32 bytes, base64) before it's written.
  */
 async function database(url: string): Promise<Store> {
-  const secret = Buffer.from(process.env.PINE_STORE_KEY ?? "", "base64");
-  if (secret.length !== 32) throw new Error("PINE_DATABASE_URL needs PINE_STORE_KEY: 32 random bytes in base64, which seals what is stored.");
+  const secret = storeKey();
   const { default: pg } = await import("pg");
   const pool = new pg.Pool({ connectionString: url });
   await pool.query("create table if not exists pine_computer_store (key text primary key, value text not null, updated_at timestamptz not null default now())");
