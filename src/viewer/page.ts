@@ -54,15 +54,24 @@ export function page({ computer, session, api }: { computer: string; session?: s
 <footer><span class="note" id="note">Watching. The computer keeps working while you watch.</span></footer>
 <script type="module">
   import { connectionFromDelegation } from "/web/pine-computer.global.js";
-  const { computer, session: pinned, api } = ${data};
+  const { computer, session: pinned, api: opened } = ${data};
+  // On a hosted service the link that opened the page ends; answers carry the next one while the page is open.
+  let api = opened;
+  const renewed = (r) => { const next = r.headers.get("x-pine-grant"); if (next) api = "/" + next + "/api"; return r; };
   const $ = (id) => document.getElementById(id);
   const post = async (path, body) => {
-    const r = await fetch(api + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ computer, session: current, ...body }) });
+    const r = renewed(await fetch(api + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ computer, session: current, ...body }) }));
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || r.statusText);
     return j;
   };
-  const get = async (path, params) => (await fetch(api + path + "?" + new URLSearchParams({ computer, ...params }))).json();
+  const get = async (path, params) => {
+    const r = renewed(await fetch(api + path + "?" + new URLSearchParams({ computer, ...params })));
+    const j = await r.json();
+    if (r.status === 410) { ended = true; drop(); empty(j.error); }
+    return j;
+  };
+  let ended = false;
   const note = (text, bad) => { $("note").textContent = text; $("note").className = bad ? "note bad" : "note"; };
   const empty = (text) => { $("empty").innerHTML = "<p></p>"; $("empty").firstChild.textContent = text; $("empty").hidden = false; };
 
@@ -115,7 +124,7 @@ export function page({ computer, session, api }: { computer: string; session?: s
 
   let ticking = false;
   async function tick() {
-    if (ticking) return;
+    if (ticking || ended) return;
     ticking = true;
     try {
       const { state, conversations } = await get("/conversations", { session: pinned ?? "" });

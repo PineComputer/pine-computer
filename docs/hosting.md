@@ -40,9 +40,12 @@ An app then adds Pine Computer with one address and one key:
   before sending it, so a process that didn't start the job can follow it to its end: a client that comes back
   after a restart gets the steps it missed and the result. An end nobody was connected to hear is kept and
   told once.
-- **A link reaches one thing.** A desktop link is signed for one conversation, a file link for one thread's
-  files. Neither carries the key, so both can be pasted into a chat. A desktop link lets its holder watch and
-  take the controls of that conversation, and it doesn't expire: treat it like a share link.
+- **A link reaches one thing, for a while.** A desktop link is signed for one conversation, a file link for
+  one thread's files. Neither carries the key, so both can be pasted into a chat. A desktop link lets its
+  holder watch and take the controls of that conversation, so it opens for an hour. A page that stays open
+  keeps working for up to twelve hours, then asks for a new link; every reply in the chat carries a new one.
+  A file link downloads for seven days. The connection to the screen itself is separate and shorter: the
+  page asks for a fresh one, good for minutes, each time it connects.
 - **Files a job made can't run here.** A file that could run script in a browser (a web page, an SVG) is
   downloaded, never shown on the service's origin.
 
