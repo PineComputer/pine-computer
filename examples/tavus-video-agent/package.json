@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "setup:tavus": "node --env-file=.env.local scripts/setup-tavus.mjs",
     "rehearse": "node --env-file=.env.local scripts/rehearse.mjs",
-    "record": "node scripts/record.mjs"
+    "record": "node scripts/record.mjs",
+    "voice": "node --env-file=.env.local scripts/voice.mjs"
   },
   "dependencies": {
     "@daily-co/daily-js": "^0.94.0",
