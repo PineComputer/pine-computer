@@ -97,7 +97,8 @@ One core, four doors. Pick the one your app already has.
 | **The terminal** · `pine-computer run "…"` | You | One job, its steps as it goes |
 
 As a tool, your agent stays in charge and hands over the computer work. As a coworker, the Computer is a
-bot of its own. [`docs/cli.md`](docs/cli.md) is the full reference.
+bot of its own. [`docs/cli.md`](docs/cli.md) is the full reference, and
+[`docs/hosting.md`](docs/hosting.md) is how to run it as one service for many projects.
 
 ## Get started
 
