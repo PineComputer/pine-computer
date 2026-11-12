@@ -200,10 +200,15 @@ server-sent events.
   the cost.
 - **A question ends the run** like a reply does (`result.state` is `needs_input`). The person's next
   message, a new run on the thread, answers it.
-- **A failure** ends in `RUN_ERROR`. So does a run on a thread whose job is still going (`code: "busy"`).
-- **Leaving doesn't cancel.** A client that drops the stream, or stops the run, stops hearing the job; the
-  Computer finishes it and the thread keeps the outcome. A client that leaves at once, before the job
-  has started, starts none.
+- **A failure** ends in `RUN_ERROR`.
+- **The job belongs to the Computer, not to the connection.** A client that drops the stream, or stops the
+  run, stops hearing the job; the Computer carries on. A client that leaves at once, before the job has
+  started, starts none.
+- **Coming back joins the job.** A run on a thread whose job is still going hears the steps so far, then
+  the rest, and ends with the job's result. Its message isn't taken as a new job.
+- **Coming back later gets the result.** If the job ended with nobody listening, the next run on the thread
+  says how it ended (the summary, or the question it stopped on) and stops there. The message after that is
+  a new job, or the answer.
 
 In CopilotKit OpenBot, from `/bots`: **New Bot**, **Custom agent**, then **An agent you already run**. Under
 "Where can it be reached?" set:
@@ -294,7 +299,10 @@ Nov 12, 2026, `serve` on a real Computer, AG-UI with the protocol's own client (
 - "Open https://example.com and tell me its heading", then a follow-up about the same page on the same
   thread: the steps as tool calls, each summary as the assistant's message, 29 s and 6 s, $0.05 in all.
 - The pizza form, ending on a question with `needs_input`; "Yes, submit it." as the next run, then
-  submitted. A second run sent to the thread mid-job got `RUN_ERROR` with `busy`.
+  submitted.
+- Leaving a run seven seconds into a job, then a new run on the thread two seconds later: it joined the job,
+  heard the step it had missed and the rest, and ended with the result. Leaving another, then coming back
+  after the job had ended: the run gave the result, and the message after it was a new job.
 - OpenBot's connection test, replayed by hand (its request, then hanging up on the first event): it got
   `RUN_STARTED`, and no thread or job was made.
 
@@ -312,8 +320,8 @@ transcript draws the steps is read from its source, not seen.
   their command and read as its own do ("Ran pdfinfo").
 - A job runs inside the process that started it. If that process exits mid-job, the Computer finishes the
   job, and the thread picks up from the agent's state on its next message.
-- AG-UI has no cancel call, and leaving the stream doesn't stop the job. Until the job ends, the thread
-  answers a new run with `busy`. A job whose client left keeps its outcome in the thread, but no later run
-  replays it.
+- AG-UI has no cancel call, and leaving the stream doesn't stop the job; there is no way to stop one over
+  AG-UI yet. `serve` keeps a job's steps and result in memory to hand to a run that comes back: after a
+  restart the thread carries on, but a result nobody heard is only in the thread's history.
 - `serve` keeps A2A tasks in memory: after a restart a context carries on, but a task from before it is
   unknown. One token covers every caller.

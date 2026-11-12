@@ -3,6 +3,9 @@
 // is one message from the person: it starts a job, or answers the question the last run ended on. The steps
 // stream as tool calls, the summary (or the question) is the assistant's message, and the files and the
 // desktop come as links. Served by `pine-computer serve`.
+//
+// The work is handed to the Computer, not held by the connection. A client that stops listening doesn't stop
+// the job: the next run on the thread joins it where it stands, or is told how it ended.
 
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -21,8 +24,27 @@ const GRACE_MS = 800;
 /** A quiet stream is taken for a dead one (OpenBot ends a turn after 60 s of silence), so a long step says so. */
 const KEEPALIVE_MS = 15_000;
 
-/** Threads with a job running now. */
-const running = new Set<string>();
+/** A step as it starts, and as it ends. Kept so a run that joins late hears the steps it missed. */
+type Step = { op: "begin"; key: string; title: string; kind: string } | { op: "end"; key: string; result: string };
+
+/** How a job ended. */
+type End =
+  | { state: string; reply: string; desktop: string; files: { name: string; url: string }[]; cost: number | null }
+  | { error: string; code: "failed" | "error" };
+
+/** A job on the Computer. It belongs to its thread, not to the run that started it. */
+interface Job {
+  steps: Step[];
+  hear: Set<(step: Step) => void>;
+  done: Promise<void>;
+  end?: End;
+  /** Whether some run was still listening when it ended, and so has told the person. */
+  told: boolean;
+  desktop: string;
+}
+
+/** Each thread's latest job, for as long as this process runs. */
+const jobs = new Map<string, Job>();
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -39,8 +61,6 @@ export function aguiHandler(): RequestHandler {
     // Server-sent events whatever the client accepts: every AG-UI client reads them.
     const encoder = new EventEncoder();
     res.writeHead(200, { "content-type": encoder.getContentType(), "cache-control": "no-cache, no-transform", "x-accel-buffering": "no" });
-    // A client that leaves stops hearing the job; it doesn't stop it, as with an A2A client that drops its
-    // stream. The Computer finishes, the thread keeps the outcome, and the next message carries on from there.
     let gone = false;
     res.on("close", () => (gone = true));
     const emit = (event: Record<string, unknown> & { type: EventType }) => void (gone || res.write(encoder.encodeSSE(event as BaseEvent)));
@@ -57,30 +77,61 @@ export function aguiHandler(): RequestHandler {
     // only for the kinds it has a renderer for. So the name is the step's title, and the arguments carry the
     // title as written and the step's kind.
     const calls = new Map<string, string>();
-    const begin = (key: string, title: string, kind: string) => {
-      const toolCallId = randomUUID();
-      calls.set(key, toolCallId);
-      emit({ type: EventType.TOOL_CALL_START, toolCallId, toolCallName: toolName(title) });
-      emit({ type: EventType.TOOL_CALL_ARGS, toolCallId, delta: JSON.stringify({ step: title, kind }) });
-      emit({ type: EventType.TOOL_CALL_END, toolCallId });
+    const show = (step: Step) => {
+      if (step.op === "begin") {
+        const toolCallId = randomUUID();
+        calls.set(step.key, toolCallId);
+        emit({ type: EventType.TOOL_CALL_START, toolCallId, toolCallName: toolName(step.title) });
+        emit({ type: EventType.TOOL_CALL_ARGS, toolCallId, delta: JSON.stringify({ step: step.title, kind: step.kind }) });
+        emit({ type: EventType.TOOL_CALL_END, toolCallId });
+      } else {
+        const toolCallId = calls.get(step.key);
+        if (!toolCallId) return;
+        calls.delete(step.key);
+        emit({ type: EventType.TOOL_CALL_RESULT, messageId: randomUUID(), toolCallId, content: step.result, role: "tool" });
+      }
     };
-    const end = (key: string, result: string) => {
-      const toolCallId = calls.get(key);
-      if (!toolCallId) return;
-      calls.delete(key);
-      emit({ type: EventType.TOOL_CALL_RESULT, messageId: randomUUID(), toolCallId, content: result, role: "tool" });
+
+    /** The job's end, as this run's end. */
+    const finish = (end: End, before = "", after = "") => {
+      if ("error" in end) return emit({ type: EventType.RUN_ERROR, message: `${before}${end.error}`, code: end.code });
+      // A question ends the run like an answer does: the person's next message, a new run on this thread, answers it.
+      const screen = end.state === "needs_input" ? `\n\nIf it needs you at the screen (a code, a check), [take over here](${end.desktop}).` : "";
+      say(`${before}${end.reply}${screen}${after}`);
+      emit({ type: EventType.RUN_FINISHED, threadId, runId, result: { state: end.state, desktop: end.desktop, files: end.files, ...(end.cost !== null ? { cost: end.cost } : {}) } });
+    };
+
+    /** Hears a job from where it stands to its end: the steps so far, then each one as it happens. */
+    const follow = async (job: Job) => {
+      for (const step of job.steps) show(step);
+      job.hear.add(show);
+      await job.done;
+      job.hear.delete(show);
+      if (gone || !job.end) return;
+      job.told = true;
+      finish(job.end);
     };
 
     emit({ type: EventType.RUN_STARTED, threadId, runId });
     const beat = setInterval(() => void (gone || res.write(": working\n\n")), KEEPALIVE_MS);
     const id = `agui-${safe(threadId)}`;
-    let held = false;
     try {
-      if (running.has(id)) {
-        return emit({ type: EventType.RUN_ERROR, message: "This conversation already has a job running. Wait for it to finish.", code: "busy" });
+      const earlier = jobs.get(id);
+      if (earlier && !earlier.end) {
+        // The person came back while the job is still going: they join it. Their message isn't a new job.
+        say(`Still working on what you gave me earlier. [Watch the computer or take over](${earlier.desktop})`);
+        return await follow(earlier);
       }
-      running.add(id);
-      held = true;
+      if (earlier?.end && !earlier.told) {
+        // The job ended with nobody listening. This run says how, and stops there: the person hasn't seen
+        // the result, or the question, that their message would otherwise be taken as a reply to.
+        earlier.told = true;
+        return finish(
+          earlier.end,
+          "error" in earlier.end ? "What you gave me earlier didn't finish: " : "What you gave me earlier ended while you were away. Here is where it stands.\n\n",
+          "\n\nIf your last message was something new, send it again.",
+        );
+      }
 
       // OpenBot checks an address by posting a real run and hanging up on the first event. A client that
       // has left before the job starts never wanted one: nothing is made for it, and nothing is spent.
@@ -95,51 +146,64 @@ export function aguiHandler(): RequestHandler {
       }
       const desktop = await viewerUrl(COMPUTER, thread.session);
       if (!thread.history.length) say(`On it. [Watch the computer or take over](${desktop})`);
+      await follow(start(id, thread, text, files, desktop));
+    } catch (error) {
+      log("ag-ui run failed:", error);
+      emit({ type: EventType.RUN_ERROR, message: `The computer couldn't take this on: ${(error as Error).message}`, code: "error" });
+    } finally {
+      clearInterval(beat);
+      if (!gone) res.end();
+    }
+  };
+}
 
-      let bridgeStep = 0;
+/** Hands the job to the Computer. It runs to its end whether or not anyone is listening. */
+function start(id: string, thread: ThreadRecord, text: string, files: string[], desktop: string): Job {
+  const job: Job = { steps: [], hear: new Set(), done: Promise.resolve(), told: false, desktop };
+  const open = new Set<string>();
+  const push = (step: Step) => {
+    if (step.op === "begin") open.add(step.key);
+    else open.delete(step.key);
+    job.steps.push(step);
+    for (const hear of job.hear) hear(step);
+  };
+  let bridgeStep = 0;
+  job.done = (async () => {
+    try {
       const outcome = await work(thread, text, {
         files,
         on: {
           // The bridge's own steps are said once, with no outcome to wait for.
           step: (t) => {
             const key = `bridge-${++bridgeStep}`;
-            begin(key, t, "bridge");
-            end(key, "Done");
+            push({ op: "begin", key, title: t, kind: "bridge" });
+            push({ op: "end", key, result: "Done" });
           },
           activity: (a: AgentActivity) => {
             // A step that takes time arrives running, then again with its outcome; a quick one arrives once.
-            if (!calls.has(a.id)) begin(a.id, a.title, a.kind);
+            if (!open.has(a.id)) push({ op: "begin", key: a.id, title: a.title, kind: a.kind });
             if (a.state === "running") return;
             const page = [a.facts?.page?.title, a.facts?.page?.url].filter(Boolean).join(" — ");
-            end(a.id, a.state === "completed" ? page || "Done" : `${a.state}${page ? `: ${page}` : ""}`);
+            push({ op: "end", key: a.id, result: a.state === "completed" ? page || "Done" : `${a.state}${page ? `: ${page}` : ""}` });
           },
           progress: () => {},
         },
       });
-      // A call left unanswered would read as one the client is asked to run.
-      for (const key of [...calls.keys()]) end(key, "Not finished");
-
       const links = await Promise.all(outcome.files.map(async (f) => ({ name: f.name, url: await fileUrl(thread.id, f.name) })));
       let reply = await hostedLinks(outcome.text, thread.id, outcome.files);
       const unlinked = links.filter((f) => !reply.includes(f.url));
       if (unlinked.length) reply += `\n\nFiles:\n${unlinked.map((f) => `- [${f.name}](${f.url})`).join("\n")}`;
-
-      if (outcome.state === "failed") {
-        return emit({ type: EventType.RUN_ERROR, message: `The computer couldn't finish: ${reply}`, code: "failed" });
-      }
-      // A question ends the run like an answer does: the person's next message, a new run on this thread, answers it.
-      say(outcome.state === "needs_input" ? `${reply}\n\nIf it needs you at the screen (a code, a check), [take over here](${desktop}).` : reply);
-      emit({ type: EventType.RUN_FINISHED, threadId, runId, result: { state: outcome.state, desktop, files: links, ...(outcome.cost !== null ? { cost: outcome.cost } : {}) } });
+      job.end = outcome.state === "failed" ? { error: `The computer couldn't finish: ${reply}`, code: "failed" } : { state: outcome.state, reply, desktop, files: links, cost: outcome.cost };
     } catch (error) {
-      log("ag-ui run failed:", error);
-      for (const key of [...calls.keys()]) end(key, "Not finished");
-      emit({ type: EventType.RUN_ERROR, message: `The computer couldn't take this on: ${(error as Error).message}`, code: "error" });
+      log("ag-ui job failed:", error);
+      job.end = { error: `The computer couldn't take this on: ${(error as Error).message}`, code: "error" };
     } finally {
-      clearInterval(beat);
-      if (held) running.delete(id);
-      if (!gone) res.end();
+      // A call left unanswered would read as one the client is asked to run.
+      for (const key of [...open]) push({ op: "end", key, result: "Not finished" });
     }
-  };
+  })();
+  jobs.set(id, job);
+  return job;
 }
 
 /** The AG-UI thread's thread, made on its first run. */
