@@ -3,7 +3,7 @@
 // this user only, like a CLI's login. Several processes share it (an app may start one per chat), so
 // writes are atomic and the steps that must not interleave take a lock.
 
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -21,6 +21,9 @@ export const at = (...parts: string[]) => path.join(HOME, ...parts);
 
 /** A file or folder name from text that came from elsewhere: a Computer's name, a session's. */
 export const safe = (name: string) => name.replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^[.-]+/, "").slice(0, 80) || "default";
+
+/** A name from text someone else chose, when two different texts must never share one. `safe` alone folds them. */
+export const exact = (text: string) => (text.length <= 64 && safe(text) === text ? text : createHash("sha256").update(text).digest("hex").slice(0, 40));
 
 export async function readJson<T>(file: string): Promise<T | undefined> {
   try {

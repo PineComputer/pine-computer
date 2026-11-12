@@ -14,7 +14,7 @@ import type { AgentActivity } from "@pinesandbox/computer";
 import { EventType, type BaseEvent, type Message, type RunAgentInput } from "@ag-ui/core";
 import { EventEncoder } from "@ag-ui/encoder";
 import type { Request, RequestHandler, Response } from "express";
-import { log, safe } from "../core/home.js";
+import { exact, log, safe } from "../core/home.js";
 import { own, scoped, store } from "../core/store.js";
 import { newThread, readThread, resume, saveThread, work, type Listener, type Outcome, type ThreadRecord } from "../core/thread.js";
 import { fileUrl, hostedLinks, viewerUrl } from "../viewer/server.js";
@@ -118,7 +118,7 @@ export function aguiHandler(): RequestHandler {
 
     emit({ type: EventType.RUN_STARTED, threadId, runId });
     const beat = setInterval(() => void (gone || res.write(": working\n\n")), KEEPALIVE_MS);
-    const id = `agui-${safe(threadId)}`;
+    const id = `agui-${exact(threadId)}`;
     try {
       const earlier = jobs.get(scoped(id));
       if (earlier && !earlier.end) {
@@ -231,11 +231,14 @@ async function heard(id: string, end: End): Promise<boolean> {
 
 /** The AG-UI thread's thread, made on its first run. */
 async function threadFor(id: string): Promise<ThreadRecord> {
-  const saved = await readThread(id);
-  if (saved) return saved;
-  const thread = { ...newThread(COMPUTER), id };
-  await saveThread(thread);
-  return thread;
+  // Two first runs at once must end up with one thread, and one session.
+  return store().lock(`thread-${id}`, async () => {
+    const saved = await readThread(id);
+    if (saved) return saved;
+    const thread = { ...newThread(COMPUTER), id };
+    await saveThread(thread);
+    return thread;
+  });
 }
 
 /** "Open a page" as open_a_page: a tool name a client can put back into words. */

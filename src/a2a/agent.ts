@@ -9,8 +9,8 @@ import path from "node:path";
 import type { AgentActivity } from "@pinesandbox/computer";
 import { A2A_PROTOCOL_VERSION, Role, TaskState, type AgentCard, type Message, type Part } from "@a2a-js/sdk";
 import { AgentEvent, type AgentExecutor, type ExecutionEventBus, type RequestContext } from "@a2a-js/sdk/server";
-import { log, safe } from "../core/home.js";
-import { own } from "../core/store.js";
+import { exact, log, safe } from "../core/home.js";
+import { own, store } from "../core/store.js";
 import { dropQuestion, newThread, readThread, saveThread, site, work, type SavedFile, type ThreadRecord } from "../core/thread.js";
 import { fileUrl, hostedLinks, mediaType, viewerUrl } from "../viewer/server.js";
 
@@ -159,12 +159,15 @@ export class PineExecutor implements AgentExecutor {
 
 /** The context's thread, made on its first message. */
 async function threadFor(contextId: string): Promise<ThreadRecord> {
-  const id = `a2a-${safe(contextId)}`;
-  const saved = await readThread(id);
-  if (saved) return saved;
-  const thread = { ...newThread(COMPUTER), id };
-  await saveThread(thread);
-  return thread;
+  const id = `a2a-${exact(contextId)}`;
+  // Two first messages at once must end up with one thread, and one session.
+  return store().lock(`thread-${id}`, async () => {
+    const saved = await readThread(id);
+    if (saved) return saved;
+    const thread = { ...newThread(COMPUTER), id };
+    await saveThread(thread);
+    return thread;
+  });
 }
 
 function message(taskId: string, contextId: string, text: string, metadata?: Record<string, unknown>): Message {

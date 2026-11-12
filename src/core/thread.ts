@@ -31,8 +31,21 @@ export interface ThreadRecord {
   cwd?: string;
   createdAt: string;
   history: Exchange[];
-  /** The turn in flight. Saved when it starts, so a process that didn't start the job can follow it to its end. */
-  job?: { turnId: string; taskId: string; cursor?: number; prompt: string; fresh: boolean };
+  /** The job in flight. Saved before it is sent, so a process that didn't start the job can follow it to its end. */
+  job?: {
+    /** Names the job, and its submission to the platform. */
+    key: string;
+    how: "run" | "answer" | "steer";
+    goal: string;
+    prompt: string;
+    fresh: boolean;
+    /** Where the session stood before the job was sent. */
+    since: { taskId?: string; turnId?: string; eventId?: number };
+    /** The turn it became, once the platform has said. */
+    turnId?: string;
+    taskId?: string;
+    cursor?: number;
+  };
 }
 
 export interface SavedFile {
@@ -153,59 +166,84 @@ async function job(thread: ThreadRecord, session: Session, fresh: boolean, promp
     await session.agent.cancel(before.turn.turnId);
     before = await session.agent.status().catch(ignoreMissing);
   }
-  let turn: AgentTurn;
-  if (before?.turn?.state === "needs_input") {
-    turn = await session.agent.answer(before.turn.turnId, goal, { secrets: secrets() });
-  } else if (before?.turn?.state === "running") {
-    // Still on a job a process that went away started: the message joins it.
-    turn = await session.agent.steer(before.turn.turnId, goal, { secrets: secrets() });
-  } else {
-    turn = await session.agent.run(goal, { context: context(thread, fresh, options.sent), secrets: secrets(), idempotencyKey: randomUUID() });
-  }
-  const { taskId } = await session.agent.status();
-  const cursor = before?.taskId === taskId ? before.turn?.lastEventId : undefined;
-  thread.job = { turnId: turn.turnId, taskId, cursor, prompt, fresh };
+  const how = before?.turn?.state === "needs_input" ? "answer" : before?.turn?.state === "running" ? "steer" : "run";
+  // Written down before it is sent: a process that dies in between leaves enough to find the turn again.
+  thread.job = { key: randomUUID(), how, goal, prompt, fresh, since: { taskId: before?.taskId, turnId: before?.turn?.turnId, eventId: before?.turn?.lastEventId } };
   await saveThread(thread);
+  const turn = await send(thread, session, options.sent);
   return conclude(thread, session, turn, options);
 }
 
+/** Sends the thread's job as written down, and records the turn it became. Safe to do twice. */
+async function send(thread: ThreadRecord, session: Session, sent?: string): Promise<AgentTurn> {
+  const { key, how, goal, fresh, since } = thread.job!;
+  let turn: AgentTurn;
+  if (how === "answer") {
+    turn = await session.agent.answer(since.turnId!, goal, { secrets: secrets() });
+  } else if (how === "steer") {
+    // Still on a job a process that went away started: the message joins it.
+    turn = await session.agent.steer(since.turnId!, goal, { secrets: secrets() });
+  } else {
+    // The key names this submission: sent again, the platform answers with the turn it already started.
+    turn = await session.agent.run(goal, { context: context(thread, fresh, sent), secrets: secrets(), idempotencyKey: key });
+  }
+  const { taskId } = await session.agent.status();
+  thread.job = { ...thread.job!, turnId: turn.turnId, taskId, cursor: since.taskId === taskId ? since.eventId : undefined };
+  await saveThread(thread);
+  return turn;
+}
+
 /**
- * Follows the thread's turn in flight to its end, from a process that may not have started it: the steps
- * from the turn's start, then the result. Null when the thread has no turn in flight.
+ * Follows the thread's job in flight to its end, from a process that may not have started it: the steps
+ * from the turn's start, then the result. Null when the thread has no job in flight.
  */
 export async function resume(thread: ThreadRecord, options: Pick<WorkOptions, "on" | "signal">): Promise<Outcome | null> {
   if (!thread.job) return null;
-  const { prompt, fresh, turnId } = thread.job;
+  const { key, how, prompt, fresh } = thread.job;
   const session = await existingSession(thread.computer, thread.session);
   if (session) {
     try {
-      return await conclude(thread, session, { turnId } as AgentTurn, options);
+      let turn = thread.job.turnId ? ({ turnId: thread.job.turnId } as AgentTurn) : undefined;
+      if (!turn && how === "run") turn = await send(thread, session);
+      if (!turn) {
+        // An answer or a nudge that may not have arrived: the turn it was for says where things stand.
+        const now = await session.agent.status().catch(ignoreMissing);
+        if (now?.turn) {
+          thread.job = { ...thread.job, turnId: now.turn.turnId, taskId: now.taskId, cursor: thread.job.since.eventId };
+          await saveThread(thread);
+          turn = now.turn;
+        }
+      }
+      if (turn) return await conclude(thread, session, turn, options);
     } catch (error) {
       if (!(error instanceof NotFoundError)) throw error;
     }
   }
   // The Computer restarted under the job: its session, and the turn in it, are gone.
   const text = "The computer restarted before this job ended, so its result is lost. Send it again to start over.";
-  await settle(thread, turnId, { at: new Date().toISOString(), prompt, reply: text, state: "failed", cost: null, files: [] });
-  return { state: "failed", text, files: [], cost: null, turnId, fresh };
+  await settle(thread, key, { at: new Date().toISOString(), prompt, reply: text, state: "failed", cost: null, files: [] });
+  return { state: "failed", text, files: [], cost: null, turnId: thread.job?.turnId ?? "", fresh };
 }
 
-/** Writes a job's end into the thread, once: two processes may have followed the same turn. */
-async function settle(thread: ThreadRecord, startedAs: string, exchange: Exchange): Promise<void> {
-  const saved = await readThread(thread.id);
-  delete thread.job;
-  if (saved && saved.job?.turnId !== startedAs) {
-    thread.history = saved.history;
-    return;
-  }
-  thread.history.push(exchange);
-  thread.history = thread.history.slice(-20);
-  await saveThread(thread);
+/** Writes a job's end into the thread, once: two processes may have followed the same job. */
+async function settle(thread: ThreadRecord, key: string, exchange: Exchange): Promise<void> {
+  await store().lock(`thread-${thread.id}`, async () => {
+    const saved = await readThread(thread.id);
+    delete thread.job;
+    if (saved && saved.job?.key !== key) {
+      thread.history = saved.history;
+      return;
+    }
+    thread.history.push(exchange);
+    thread.history = thread.history.slice(-20);
+    await saveThread(thread);
+  });
 }
 
 async function conclude(thread: ThreadRecord, session: Session, turn: AgentTurn, options: Pick<WorkOptions, "on" | "signal">): Promise<Outcome> {
   const { on, signal } = options;
-  const { taskId, cursor, prompt, fresh, turnId: startedAs } = thread.job!;
+  const { key, cursor, prompt, fresh } = thread.job!;
+  const taskId = thread.job!.taskId!;
 
   const stopFollowing = new AbortController();
   const following = follow(session, taskId, cursor, on, stopFollowing.signal);
@@ -240,7 +278,7 @@ async function conclude(thread: ThreadRecord, session: Session, turn: AgentTurn,
   const said = (turn.state === "needs_input" ? turn.question || turn.result?.summary : turn.result?.summary)?.trim() || defaultText(state);
   const text = localize(said, files);
   const cost = turn.result?.usage.cost.total ?? null;
-  await settle(thread, startedAs, { at: new Date().toISOString(), prompt, reply: text, state, cost, files: files.map((f) => f.path) });
+  await settle(thread, key, { at: new Date().toISOString(), prompt, reply: text, state, cost, files: files.map((f) => f.path) });
   return { state, text, files, cost, turnId: turn.turnId, fresh };
 }
 
