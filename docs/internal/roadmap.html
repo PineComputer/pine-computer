@@ -116,7 +116,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 20px; display: flex; flex-directio
   <h2>Progress</h2>
 
   <div class="track">
-    <div class="track-head"><h3>Ways in</h3><span class="meta">pine-computer-bridge</span></div>
+    <div class="track-head"><h3>Ways in</h3><span class="meta">PineComputer/pine-computer</span></div>
     <ul class="ledger">
       <li class="done"><span class="st">Done</span><div><div class="what">One core behind every protocol</div><div class="note">Thread = session, message = job, a question ends the turn, files come back, secrets stay out of the model.</div></div></li>
       <li class="done"><span class="st">Done</span><div><div class="what">MCP, local and over HTTP</div><div class="note">Four tools. Tested on a real Computer.</div></div></li>
@@ -134,7 +134,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 20px; display: flex; flex-directio
       <li class="done"><span class="st">Done</span><div><div class="what">Tavus × Pine Computer demo</div><div class="note">A video agent takes the call and the Computer does the portal work, which carries on after the call ends. Built and rehearsed.</div></div></li>
       <li class="done"><span class="st">Done</span><div><div class="what">Pine Drama Studio</div><div class="note">A short-drama application on Pine Computers, public and open source.</div></div></li>
       <li class="done"><span class="st">Done</span><div><div class="what">Pine Computer starter</div><div class="note">Next.js app: tasks, desktop handoff, skills, schedules. Public.</div></div></li>
-      <li class="doing"><span class="st">In progress</span><div><div class="what">Tavus film and write-up</div><div class="note">A 24-second stand-in is cut from the call of November 6, but that capture is too soft. It needs recording again at twice the size, with the call's sound.</div></div></li>
+      <li class="doing"><span class="st">In progress</span><div><div class="what">Tavus film and write-up</div><div class="note">The recorder works: one call at 3200×1800 with both voices, on a clean film layout. A full take exists with a woman's voice for the customer; the chosen man's voice (ElevenLabs, Mark) is generated. The last take is waiting on Tavus credit.</div></div></li>
       <li class="next"><span class="st">Next</span><div><div class="what">Drama Studio recorded and written up</div><div class="note">Same form.</div></div></li>
     </ul>
   </div>
@@ -169,7 +169,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 20px; display: flex; flex-directio
     <ul class="ledger">
       <li class="done"><span class="st">Done</span><div><div class="what">Claude Code</div><div class="note">MCP, local and over HTTP.</div></div></li>
       <li class="done"><span class="st">Done</span><div><div class="what">Codex command line</div><div class="note">MCP. GPT-6 Astra handed over a job and got a one-page PDF back.</div></div></li>
-      <li class="next"><span class="st">Next</span><div><div class="what">DeepSeek Harness (dsh)</div><div class="note">A plugin for its own plugin system, not MCP. The first step is reading its plugin interface in the repository.</div></div></li>
+      <li class="doing"><span class="st">In progress</span><div><div class="what">DeepSeek Harness (dsh)</div><div class="note">A plugin on its own plugin system, in <code>plugins/deepseek-harness</code>. It installs and loads in dsh 0.2.2-rc.2 with the four tools and the skill registered. No model has called it and no real job has run through it yet.</div></div></li>
       <li class="next"><span class="st">Next</span><div><div class="what">Codex app and Cursor</div><div class="note">MCP.</div></div></li>
 
       <li><span class="st">Later</span><div><div class="what">An A2A platform</div><div class="note">Google ADK or an orchestrator, beyond the SDK clients already tested.</div></div></li>
@@ -180,7 +180,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 20px; display: flex; flex-directio
     <div class="track-head"><h3>Repositories</h3><span class="meta">github.com/PineComputer</span></div>
     <ul class="ledger">
       <li class="done"><span class="st">Done</span><div><div class="what">pine-tavus-demo, private</div><div class="note">First commit pushed: the demo app and its test portal. Apache-2.0.</div></div></li>
-      <li class="done"><span class="st">Done</span><div><div class="what">pine-computer-bridge, private</div><div class="note">First commit pushed: MCP, A2A, ACP and the desktop pages. Apache-2.0.</div></div></li>
+      <li class="done"><span class="st">Done</span><div><div class="what">pine-computer, the main repository, private</div><div class="note">The bridge, renamed, is now the open-source entry: a landing README, the CLI (MCP, A2A, ACP, desktop pages), the skill, a Claude Code plugin, the DeepSeek Harness plugin and an index of what is built on Pine Computer. Apache-2.0. Planning notes come out before it is public.</div></div></li>
       <li class="done"><span class="st">Done</span><div><div class="what">pine-computer-starter and open-pinedrama, public</div><div class="note">Already there.</div></div></li>
       <li><span class="st">Later</span><div><div class="what">Before either private one goes public</div><div class="note">Take the Plein font file out of the Tavus demo (its licence forbids publishing it), and move the planning notes out of the bridge.</div></div></li>
     </ul>
@@ -200,8 +200,8 @@ ul.plain, ol.plain { margin: 0; padding-left: 20px; display: flex; flex-directio
   <div class="track">
     <div class="track-head"><h3>Packaging</h3><span class="meta">what makes an app's agent pick Pine</span></div>
     <ul class="ledger">
-      <li class="next"><span class="st">Next</span><div><div class="what">The Pine Computer skill</div><div class="note">One <code>SKILL.md</code> package: when to hand work to the computer, how to pass on its questions, how to share the desktop link. Today that is one line pasted into each bot's instructions.</div></div></li>
-      <li class="next"><span class="st">Next</span><div><div class="what">Install paths for Claude Code, Codex and LobeHub</div><div class="note">The same skill and server, with one install line or one store entry per app.</div></div></li>
+      <li class="done"><span class="st">Done</span><div><div class="what">The Pine Computer skill</div><div class="note">One <code>SKILL.md</code> package: when to hand work to the computer, how to pass on its questions, how to share the desktop link. Today that is one line pasted into each bot's instructions.</div></div></li>
+      <li class="doing"><span class="st">In progress</span><div><div class="what">Install paths for Claude Code, Codex and LobeHub</div><div class="note">Claude Code: a plugin from the repository root (tools and skill together), validated but not yet installed from GitHub. Codex: the MCP line. LobeHub: not started.</div></div></li>
       <li><span class="st">Later</span><div><div class="what">Published command</div><div class="note">So <code>npx pine-computer</code> works without a checkout.</div></div></li>
       <li><span class="st">Later</span><div><div class="what">Sign-in instead of pasting a project key</div><div class="note">Needs Console work in PineSandbox.</div></div></li>
       <li><span class="st">Later</span><div><div class="what">An endpoint Pine hosts</div><div class="note">One URL for MCP and A2A, so nobody runs a process.</div></div></li>
