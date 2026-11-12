@@ -177,15 +177,14 @@ Then ask for something that needs a computer:
 
 ## Built on Pine Computer
 
-Real products, each with its own model, logic and interface. Their whole source is in
-[`examples/`](examples/): open a folder and run it.
+Real products, each with its own model, logic and interface. The starter and the Tavus video agent are whole
+apps in [`examples/`](examples/): open a folder and run it.
 
 | | |
 | --- | --- |
 | [**Starter**](examples/starter/) | A complete product to rename and ship: sessions side by side, the work live, the controls, skills, a vault, files in and out. Start here. |
-| [**Drama Studio**](examples/drama-studio/) | A studio for makers of AI vertical short dramas: agents, each on its own Computer, take a screenplay to a cut, and you review where they ask. |
+| [**Drama Studio**](https://github.com/PineComputer/open-pinedrama) | A studio for makers of AI vertical short dramas: agents, each on its own Computer, take a screenplay to a cut, and you review where they ask. |
 | [**Tavus video agent**](examples/tavus-video-agent/) | A video agent takes a customer's call and hands the claim to a Pine Computer, which files it while they talk. |
-| [**Among Minds**](examples/among-minds/) | A habitat for artificial minds: four AIs, each with a permanent Computer of its own. |
 
 <p align="center">
   <img src="examples/starter/docs/screenshot.jpg" alt="The starter: the agent's work and answer on the left, the Computer's live screen on the right" width="100%">

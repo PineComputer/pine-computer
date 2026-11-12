@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [starter, tavus-video-agent, drama-studio, among-minds]
+        example: [starter, tavus-video-agent]
     defaults:
       run:
         working-directory: examples/${{ matrix.example }}

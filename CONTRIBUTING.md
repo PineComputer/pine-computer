@@ -15,7 +15,7 @@ most of all an integration with an agent app we haven't covered.
 | `skills/pine-computer/` | The hand-over skill: when and how an agent gives a job to a Computer. It describes the tools in `src/mcp`, so change them together. |
 | `skills/pine-computer-sdk/` | The build skill: how a coding agent builds Pine Computer into a product. It sends the agent to the guide inside the installed SDK, and never restates the API. |
 | `plugins/` | One folder per agent app that has its own plugin system. |
-| `examples/` | Whole products built on Pine Computer, brought in from their own repositories with `git subtree`. Change them there, then pull. |
+| `examples/` | Whole products built on Pine Computer: the starter and the Tavus video agent. Each is an app of its own, with its own `package.json`. |
 | `docs/cli.md` | The CLI reference. |
 
 ## Build and check
