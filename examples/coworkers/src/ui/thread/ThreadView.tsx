@@ -44,7 +44,7 @@ export function ThreadView({ id }: { id: string }) {
   if (!thread || !coworker) return null;
 
   const last = jobs.at(-1);
-  const mode = last?.state === "needs_input" ? "answer" : last && WORKING.has(last.state) ? "steer" : "job";
+  const mode = last?.state === "needs_input" ? "answer" : last && WORKING.has(last.state) ? (last.turnId ? "steer" : "wait") : "job";
   const base = `/api/threads/${enc(id)}`;
   const jobAction = (job: JobView, action: string, text?: string) => act(() => call(`${base}/jobs/${enc(job.id)}`, { body: { action, text } })).then((done) => done !== undefined);
   const send = (text: string) => {
@@ -100,7 +100,7 @@ export function ThreadView({ id }: { id: string }) {
           </div>
         </div>
         {/* While it asks, the question's own reply box is the way to answer. */}
-        {mode === "answer" ? <span /> : <Composer mode={mode} name={coworker.name} onSend={send} onStop={mode === "steer" && last ? () => void jobAction(last, "cancel") : undefined} />}
+        {mode === "answer" ? <span /> : <Composer mode={mode} name={coworker.name} onSend={send} onStop={mode !== "job" && last ? () => void jobAction(last, "cancel") : undefined} />}
       </section>
 
       {panel ? (

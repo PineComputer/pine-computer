@@ -5,8 +5,8 @@ import { useRef, useState } from "react";
 import { useWorkspace } from "../app/Workspace";
 
 export interface ComposerProps {
-  /** job: a new job; steer: guidance while it works. */
-  mode: "job" | "steer";
+  /** job: a new job; steer: guidance while it works; wait: its job hasn't started, so there is nothing to steer yet. */
+  mode: "job" | "steer" | "wait";
   name: string;
   onSend: (text: string) => Promise<boolean>;
   /** Stops the job under way. */
@@ -16,10 +16,11 @@ export interface ComposerProps {
 const PLACEHOLDER = {
   job: (name: string) => `Give ${name} a job`,
   steer: (name: string) => `Steer ${name} while it works`,
+  wait: (name: string) => `${name} hasn't started on this yet`,
 };
-const HINT = { job: "", steer: "It reads this at its next step" };
+const HINT = { job: "", steer: "It reads this at its next step", wait: "" };
 
-/** One box for both: what a message means depends on what the coworker is doing. */
+/** One box for every case: what a message means depends on what the coworker is doing. */
 export function Composer({ mode, name, onSend, onStop }: ComposerProps) {
   const { ws } = useWorkspace();
   const [text, setText] = useState("");
@@ -64,6 +65,7 @@ export function Composer({ mode, name, onSend, onStop }: ComposerProps) {
           ref={box}
           value={text}
           rows={2}
+          disabled={mode === "wait"}
           placeholder={PLACEHOLDER[mode](name)}
           aria-label={PLACEHOLDER[mode](name)}
           onChange={(event) => setText(event.target.value)}

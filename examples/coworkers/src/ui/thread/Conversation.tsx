@@ -258,7 +258,7 @@ function LearnNote({ job, onReview }: { job: JobView; onReview: () => void }) {
           Skill active: <b className="mono">{learn.name}</b>
         </>
       ) : (
-        `No skill came of it. ${learn.reason ?? ""}`
+        `No skill came of it: ${learn.reason ?? "nothing in it was worth keeping"}.`
       )}
     </span>
   );

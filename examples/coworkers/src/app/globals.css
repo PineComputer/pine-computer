@@ -179,7 +179,7 @@ a { color: inherit; text-decoration: none; }
 .hire { margin: 6px 0 0; justify-content: flex-start; color: var(--fg-3); height: 36px; padding: 0 8px; gap: 10px; }
 .hire .plus { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; border: 1px dashed var(--line-3); }
 
-.main { display: grid; grid-template-columns: minmax(400px, 5fr) minmax(0, 6fr); min-width: 0; min-height: 0; }
+.main { display: grid; grid-template-columns: minmax(400px, 4fr) minmax(0, 6fr); min-width: 0; min-height: 0; }
 .main[data-panel="closed"] { grid-template-columns: minmax(0, 1fr); }
 .col { display: grid; grid-template-rows: 52px minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
 .col + .col { border-left: 1px solid var(--line); background: var(--bg-elev); }
@@ -271,6 +271,7 @@ a { color: inherit; text-decoration: none; }
 .composer:focus-within { border-color: var(--accent); }
 .composer textarea { display: block; width: 100%; min-height: 56px; max-height: 40vh; resize: none; padding: 11px 13px 2px; border: 0; background: transparent; font-size: 14px; line-height: 1.5; outline: none; }
 .composer textarea::placeholder { color: var(--fg-4); }
+.composer[data-mode="wait"] { background: none; }
 .composer-bar { display: flex; align-items: center; gap: 4px; padding: 4px 6px 6px; }
 .composer-bar .mode { font-size: 11.5px; color: var(--fg-4); margin-left: 4px; }
 .composer-bar .push { margin-left: auto; display: flex; gap: 6px; }
