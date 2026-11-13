@@ -15,3 +15,20 @@ Wall-clock times, from `date`, in PST.
 - 2026-11-12 22:47:33 — End, before the last commit. Total: 38 min 49 s.
 
 Time blocked on outside things: none. No outage, rate limit or capacity limit was met.
+
+## Later passes
+
+### Design pass
+
+- 2026-11-12 23:28:16 — Start.
+- A design system in `globals.css`: paper, ink and hairlines, one green accent, amber kept for "your turn", a real type scale, serif monogram avatars with a slow ring while at work; light by default, dark by system or toggle.
+- Layout: the screen is the hero, with a status line above it (what it is doing, elapsed, the Computer's state, Take control) and the trail of screens under it; a stopped Computer shows its last screen, dimmed, with Start.
+- The trail: each step's picture of the screen, live from the event stream and kept beside the job afterwards; blank pictures are dropped; a file a job made sits in the trail and opens in place.
+- Steps in plain words, folded when the same kind repeats, a live tail while it works, one summary line with the cost when it settles.
+- Thread titles by rule from the first message; four threads a coworker in the sidebar, then "N more".
+- Small things: no repeated link when a file is attached, image previews, End job beside the reply.
+- Save as a skill: moved to `startLearn` with a scaffold so the author's questions reach the thread. On a signed-in portal job the author declined once ("too ambiguous"), then asked for the steps after sign-in; answered in the thread, it registered a draft. The draft was read and activated in the page and shows in the profile; a similar job then ran with it in 40 s where the first took 1 min 23 s.
+- Three jobs on real Computers in a fresh workspace: Hacker News (2 min 24 s), a quotes PDF (58 s), and a warranty claim on a signed-in portal with the password from the vault, left at its approval and then declined; the claim was not submitted.
+- Every state looked at in a browser at 1600×1000, light and dark, over two rounds of critique; the six screenshots in this folder replaced from those jobs.
+- Every Computer stopped, each stop confirmed. `npm run check` and `npm run build` pass.
+- 2026-11-13 00:11:00 — End, before the commits. This pass: 42 min 44 s.
