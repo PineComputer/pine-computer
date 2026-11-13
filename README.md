@@ -32,9 +32,9 @@
 <br>
 
 <p align="center">
-  <img src="examples/tavus-video-agent/docs/film.jpg" alt="From a recorded call: a video agent on the left, every handoff in the middle, the Computer's desktop with the submitted claim on the right" width="100%">
-  <br>
-  <sub>A product built on it, from a recorded call: the video agent talks to the customer while the Computer files the claim.</sub>
+  <a href="#built-on-pine-computer">
+    <img src="docs/brand/cover.jpg" alt="Your product. Our computer. Three products built on Pine Computer: Roster, Drama Studio and a video agent" width="100%">
+  </a>
 </p>
 
 <p align="center">
@@ -172,6 +172,14 @@ model, logic and interface, open source, on the same Computer. Clone one, rename
   <img src="examples/coworkers/docs/approval.png" alt="Roster: three coworkers and their threads on the left; a conversation in which one asks whether it may submit a warranty claim, with Approve and Decline; and on the right its live desktop with the trail of screens the job left" width="100%">
   <br>
   <sub>Roster: a coworker stops to ask before it submits. Its Computer's screen, and every screen the job left, sit beside the chat.</sub>
+</p>
+
+<p align="center">
+  <a href="https://cdn.19pine.ai/pine-drama-studio/pine-drama-studio-launch-4k.mp4">
+    <img src="https://cdn.19pine.ai/pine-drama-studio/pine-drama-studio-launch-cover.jpg" alt="Pine Drama Studio: the studio's canvas and chat, with one Pine Computer for each of 25 episodes" width="100%">
+  </a>
+  <br>
+  <sub><a href="https://github.com/PineComputer/pine-drama-studio">Drama Studio</a>: one screenplay, 25 episodes, a Pine Computer for each. The picture opens its launch film.</sub>
 </p>
 
 ## Plugins
