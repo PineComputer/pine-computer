@@ -108,23 +108,37 @@ const session = await computer.createSession();
 
 // Hand over the job. The password is typed by the Computer and never reaches the model.
 const goal = "Sign in to the supplier portal as ops@example.com with $PORTAL_PASSWORD and download this month's invoices.";
-let turn = await session.agent.run(goal, {
-  idempotencyKey: message.id,
-  secrets: { PORTAL_PASSWORD: await vault.get("portal") },
-});
+const secrets = { PORTAL_PASSWORD: await vault.get("portal") };
+let turn = await session.agent.run(goal, { idempotencyKey: message.id, secrets });
 
-// Show the work as it happens.
-for await (const event of session.agent.events()) {
-  const step = event.activity();
-  if (step) upsertStep(step.id, step.state, step.title); // "Click “Log in”"
-  if (event.result()) break;
+// Show the work as it happens, alongside waiting for the result.
+const activity = new AbortController();
+const showing = (async () => {
+  try {
+    for await (const event of session.agent.events({ frames: false, signal: activity.signal })) {
+      const step = event.activity();
+      if (step) upsertStep(step.id, step.state, step.title); // "Click “Log in”"
+    }
+  } catch (error) {
+    if (!activity.signal.aborted) console.error(error);
+  }
+})();
+
+try {
+  for (;;) {
+    turn = await session.agent.wait(turn.turnId, { timeoutMs: 30_000 });
+    if (turn.state === "needs_input") {
+      turn = await session.agent.answer(turn.turnId, await ask(turn.question), { secrets });
+    } else if (turn.state !== "running" && turn.state !== "canceling") break;
+  }
+} finally {
+  activity.abort();
+  await showing;
 }
 
-// A question ends the turn; the person's reply carries the job on.
-turn = await session.agent.wait(turn.turnId);
-if (turn.state === "needs_input") turn = await session.agent.answer(turn.turnId, await ask(turn.question));
+if (turn.state !== "completed") throw new Error(turn.result?.summary || `Turn ended: ${turn.state}`);
 
-// Bring the work back, and keep how it was done.
+// Bring the finished work back, and keep how it was done.
 for (const file of turn.result?.artifacts ?? []) await save(file.relativePath, await session.readFile(file.relativePath));
 await session.learn(); // a draft skill, waiting for your review
 ```

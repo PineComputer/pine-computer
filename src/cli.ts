@@ -12,21 +12,14 @@
 // The Computer is PINE_COMPUTER (default "default"). The Pine key comes from the environment or from
 // ~/.pine-computer/env.
 
+import "./bootstrap.js";
 import { serveAcp } from "./acp/agent.js";
 import { describe, stopComputer } from "./core/computer.js";
 import { serveMcp } from "./mcp/server.js";
-import { loadEnv } from "./core/home.js";
 import { newThread, saveThread, work } from "./core/thread.js";
 import { serve } from "./serve.js";
 import { ensureViewer, serveViewer, viewerUrl } from "./viewer/server.js";
 
-// Apps check an engine by running its whole configured command with --version ("pine-computer acp --version").
-if (process.argv.includes("--version") || process.argv.includes("-v")) {
-  console.log("pine-computer 0.1.0");
-  process.exit(0);
-}
-
-loadEnv();
 const [command, ...rest] = process.argv.slice(2);
 const computer = process.env.PINE_COMPUTER || "default";
 
