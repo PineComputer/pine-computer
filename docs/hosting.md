@@ -9,7 +9,7 @@ Pine Computer project key as the bearer token, and reaches only its own Computer
 docker build -t pine-computer .
 docker run -p 8080:8080 -v pine-computer-data:/data \
   -e PINE_SANDBOX_ENDPOINT=… \
-  -e PINE_PUBLIC_URL=https://agents.example.com \
+  -e PINE_PUBLIC_URL=https://connect.example.com \
   -e PINE_STORE_KEY="$(openssl rand -base64 32)" \
   pine-computer
 ```
@@ -26,9 +26,9 @@ An app then adds Pine Computer with one address and one key:
 
 | | Address |
 | --- | --- |
-| MCP | `https://agents.example.com/mcp` |
-| A2A | `https://agents.example.com/.well-known/agent-card.json` |
-| AG-UI | `https://agents.example.com/agui` |
+| MCP | `https://connect.example.com/mcp` |
+| A2A | `https://connect.example.com/.well-known/agent-card.json` |
+| AG-UI | `https://connect.example.com/agui` |
 
 ## How it holds together
 
