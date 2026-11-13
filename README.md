@@ -164,9 +164,15 @@ model, logic and interface, open source, on the same Computer. Clone one, rename
 | | |
 | --- | --- |
 | [**Starter**](examples/starter/) | A complete product to rename and ship: sessions side by side, the work live, the controls, skills, a vault, files in and out, schedules. Start here. |
-| [**Roster**](examples/coworkers/) | A workspace of AI coworkers, each with a Computer of its own: give one a job in its thread, watch its screen beside the chat, approve when it asks. A coding agent built it from the starter in 39 minutes; [the log](examples/coworkers/docs/BUILD-LOG.md) has every step. |
+| [**Roster**](examples/coworkers/) | A workspace of AI coworkers, each with a Computer of its own: give one a job in its thread, watch its screen beside the chat, approve when it asks. A coding agent had it working, from the starter, in 39 minutes, and a second pass of 43 gave it its look and its skills; [the log](examples/coworkers/docs/BUILD-LOG.md) has every step. |
 | [**Tavus video agent**](examples/tavus-video-agent/) | A video agent takes a customer's call and hands the claim to a Pine Computer, which files it while they talk. |
 | [**Drama Studio**](https://github.com/PineComputer/pine-drama-studio) | A desktop studio for AI short dramas: bring a screenplay, and an agent on a Pine Computer makes the drama with you, from characters and storyboards to takes and the cut. |
+
+<p align="center">
+  <img src="examples/coworkers/docs/approval.png" alt="Roster: three coworkers and their threads on the left; a conversation in which one asks whether it may submit a warranty claim, with Approve and Decline; and on the right its live desktop with the trail of screens the job left" width="100%">
+  <br>
+  <sub>Roster: a coworker stops to ask before it submits. Its Computer's screen, and every screen the job left, sit beside the chat.</sub>
+</p>
 
 ## Plugins
 
