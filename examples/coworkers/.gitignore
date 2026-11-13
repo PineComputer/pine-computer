@@ -1,0 +1,9 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# Your settings, and the Computer's saved records and files
+.env
+.env.local
+.data/
