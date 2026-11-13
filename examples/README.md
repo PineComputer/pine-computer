@@ -24,8 +24,8 @@ The Computer as a tool: the workspace's own agent stays in charge and hands over
 
 | | How | Guide |
 | --- | --- | --- |
-| **Claude Code** | The plugin from this repository: the tools and the skill together | [README](../README.md#get-started) |
-| **Codex, Cursor** | `pine-computer mcp` | [README](../README.md#get-started) |
+| **Claude Code** | The plugin from this repository: the tools and the skill together | [README](../README.md#or-over-a-protocol) |
+| **Codex, Cursor** | `pine-computer mcp` | [README](../README.md#or-over-a-protocol) |
 | **DeepSeek Harness** | A plugin in its own plugin system | [plugins/deepseek-harness](../plugins/deepseek-harness) |
 | **OpenMausBot** | An MCP server a bot is given | [docs/cli.md](../docs/cli.md#openmausbot) |
 

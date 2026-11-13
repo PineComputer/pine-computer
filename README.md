@@ -38,12 +38,11 @@
 </p>
 
 <p align="center">
-  <a href="#what-it-is">What it is</a> ·
-  <a href="#four-ways-in">Four ways in</a> ·
-  <a href="#get-started">Get started</a> ·
-  <a href="#how-a-job-goes">How a job goes</a> ·
+  <a href="#what-a-computer-can-do">What it can do</a> ·
+  <a href="#build-it-into-your-product">Build it in</a> ·
   <a href="#built-on-pine-computer">Built on it</a> ·
-  <a href="#build-it-into-your-product">SDKs</a> ·
+  <a href="#inside-the-agent-apps-you-use">In agent apps</a> ·
+  <a href="#or-over-a-protocol">Protocols</a> ·
   <a href="#status">Status</a>
 </p>
 
@@ -57,7 +56,7 @@
     </td>
     <td width="25%" valign="top">
       <h3>An agent built in</h3>
-      Hand over a job, not a script of clicks. Your agent keeps its own model, logic and tools, and gets the finished work back.
+      Hand over a job, not a script of clicks. Your product keeps its own model, logic and tools, and gets the finished work back.
     </td>
     <td width="25%" valign="top">
       <h3>Stays signed in</h3>
@@ -72,94 +71,117 @@
 
 <br>
 
-## What it is
+## What a Computer can do
 
 Agents are good at deciding what to do. Most of the world's work still happens behind a sign-in, on a web
-page, in a file. Pine Computer is the computer for that work: a cloud computer with its own agent, which
-your product or your agent hands a job to.
+page, in a file. Pine Computer is the computer for that work, and it is a whole one.
 
-This repository is the open-source way in. It holds:
+| | |
+| --- | --- |
+| **Does the job** | Give it a goal in plain words. It works a real Chrome on a real desktop, across as many tabs as the job needs, with a shell and files beside it. [Agent](https://console.pinecomputer.io/docs/agent) |
+| **Shows its work** | Every step streams back as it happens: what it is doing, each action and how it went, and the screen itself. [Agent](https://console.pinecomputer.io/docs/agent) |
+| **Asks first** | It stops and asks when only a person knows the answer, and before anything that spends, sends or submits. The answer carries the same job on. Steer it mid-job, or cancel. [Agent](https://console.pinecomputer.io/docs/agent) |
+| **Hands you the controls** | Its live desktop sits inside your own page, as a Web Component or a React or Vue component, on a laptop or a phone. A person watches, takes over to sign in or decide, and hands it back. [Web SDK](https://console.pinecomputer.io/docs/web-sdk) |
+| **Remembers who it is** | Sign-ins and passkeys belong to the Computer and come back every time it starts, saved under keys only your server holds. [Persistence](https://console.pinecomputer.io/docs/persistence) |
+| **Learns the job** | Turn a job it finished, or one a person showed it, into a skill. You read each skill before any agent uses it, and every later job on that Computer starts out knowing how. [Skills](https://console.pinecomputer.io/docs/skills) |
+| **Works in parallel** | Several sessions on one Computer at once, each with its own window, shell and files, all sharing the same sign-ins. [Sessions](https://console.pinecomputer.io/docs/sessions) |
+| **Makes real files** | Fills, edits and merges PDFs; writes Word documents, PowerPoint decks and Excel workbooks; cuts, subtitles and mixes video and audio. [Skills](https://console.pinecomputer.io/docs/skills) |
+| **Keeps what matters** | Artifacts are files the Computer keeps beyond any one session. List, upload and download them even while it is stopped, or share one with a link. [Artifacts](https://console.pinecomputer.io/docs/artifacts) |
+| **Keeps secrets** | Hand it a password by name. The Computer types it; the model never sees it. [Agent](https://console.pinecomputer.io/docs/agent) |
+| **Waits without running** | Pause a Computer with everything open and carry on later, or stop it and start again from its saved identity. [Persistence](https://console.pinecomputer.io/docs/persistence) |
+| **Works from where you choose** | Pick the country its browser reaches the internet from. [Overview](https://console.pinecomputer.io/docs) |
 
-- **`pine-computer`**, a CLI that puts one Computer behind the protocols agent apps already speak;
-- **two skills**: one teaches an agent when and how to hand work over
-  ([`skills/pine-computer`](skills/pine-computer/SKILL.md)), one teaches a coding agent to build Pine Computer
-  into a product with the SDKs ([`skills/pine-computer-sdk`](skills/pine-computer-sdk/SKILL.md));
-- **plugins** for the agent apps that have their own plugin system ([`plugins/`](plugins/));
-- **examples**: real products built on it ([`examples/`](examples/)).
+## Build it into your product
 
-## Four ways in
+All of it is one SDK away. Your backend creates a Computer and hands it a job; your page shows its screen.
+The server SDKs are in TypeScript, Go, Ruby and Python, with the same objects and calls in each.
 
-One core, four doors. Pick the one your app already has.
+```ts
+import { Client, Credentials } from "@pinesandbox/computer";
 
-| | For | What the app sees |
-| --- | --- | --- |
-| **A tool** · `pine-computer mcp` | Agents that call tools: Claude Code, Codex, Cursor, chat apps with an MCP panel | Four tools: `computer_task`, `computer_wait`, `computer_cancel`, `computer_desktop` |
-| **A hosted tool or agent** · `pine-computer serve` | Web apps and agent platforms, over HTTP | The same tools at `/mcp`, an A2A agent at `/a2a` with its card, and an AG-UI agent at `/agui` |
-| **A coworker** · `pine-computer acp` | Apps that run agents over the Agent Client Protocol: OpenMausBot, nightly-labs OpenBot, Zed | A bot. Each chat thread is a thread on the Computer; its steps show as it works; its summary is the reply |
-| **The terminal** · `pine-computer run "…"` | You | One job, its steps as it goes |
+const client = Client.fromEnv();
+const credentials = await Credentials.generate();
+await store.saveCredentials(credentials.id, credentials.serialize()); // your encrypted database
 
-As a tool, your agent stays in charge and hands over the computer work. As a coworker, the Computer is a
-bot of its own. [`docs/cli.md`](docs/cli.md) is the full reference.
+const computer = await client.createComputer({ credentials });
+const session = await computer.createSession();
 
-## Get started
+// Hand over the job. The password is typed by the Computer and never reaches the model.
+const goal = "Sign in to the supplier portal as ops@example.com with $PORTAL_PASSWORD and download this month's invoices.";
+let turn = await session.agent.run(goal, {
+  idempotencyKey: message.id,
+  secrets: { PORTAL_PASSWORD: await vault.get("portal") },
+});
 
-You need a Pine Computer project key: get one at [pinecomputer.io](https://pinecomputer.io).
+// Show the work as it happens.
+for await (const event of session.agent.events()) {
+  const step = event.activity();
+  if (step) upsertStep(step.id, step.state, step.title); // "Click “Log in”"
+  if (event.result()) break;
+}
 
-Node.js 22 or newer.
+// A question ends the turn; the person's reply carries the job on.
+turn = await session.agent.wait(turn.turnId);
+if (turn.state === "needs_input") turn = await session.agent.answer(turn.turnId, await ask(turn.question));
 
-```sh
-git clone https://github.com/PineComputer/pine-computer && cd pine-computer
-npm install && npm run build && npm link          # puts `pine-computer` on your PATH
-
-mkdir -p ~/.pine-computer && chmod 700 ~/.pine-computer
-printf 'PINE_SANDBOX_API_KEY=…\nPINE_SANDBOX_ENDPOINT=…\n' > ~/.pine-computer/env && chmod 600 ~/.pine-computer/env
-
-pine-computer run "Open https://news.ycombinator.com and tell me the top 3 stories."
+// Bring the work back, and keep how it was done.
+for (const file of turn.result?.artifacts ?? []) await save(file.relativePath, await session.readFile(file.relativePath));
+await session.learn(); // a draft skill, waiting for your review
 ```
 
-Then give it to your agent.
+```tsx
+import { PineDesktop } from "@pinesandbox/computer-web/react";
 
-**Claude Code**, as a plugin (the tools and the skill together):
-
-```
-/plugin marketplace add PineComputer/pine-computer
-/plugin install pine-computer@pine-computer
+// The live screen in your page. Your backend mints a short-lived token for it; no key reaches the browser.
+<PineDesktop url={url} token={getDesktopToken} control={driving ? "drive" : "view"} />
 ```
 
-**Claude Code, Codex, Cursor**, as an MCP server:
+- Server SDK for TypeScript: [`@pinesandbox/computer`](https://www.npmjs.com/package/@pinesandbox/computer)
+- Web SDK, the live desktop in your page: [`@pinesandbox/computer-web`](https://www.npmjs.com/package/@pinesandbox/computer-web)
+- Every SDK and the full guide: [developer docs](https://console.pinecomputer.io/docs)
 
-```sh
-claude mcp add --scope user pine-computer -- pine-computer mcp
-codex mcp add pine-computer -- pine-computer mcp
-```
+The [starter](examples/starter/) is the shortest path from the SDK to a product: a complete app to rename
+and ship. A coding agent can build the integration for you with the
+[`pine-computer-sdk`](skills/pine-computer-sdk/SKILL.md) skill, which sends it to the guide for the SDK
+version you have installed.
 
-```json
-{ "mcpServers": { "pine-computer": { "command": "pine-computer", "args": ["mcp"] } } }
-```
+<p align="center">
+  <img src="examples/starter/docs/screenshot.jpg" alt="The starter: the agent's work and answer on the left, the Computer's live screen on the right" width="100%">
+  <br>
+  <sub>The starter: the agent's work on the left, the Computer's live screen on the right.</sub>
+</p>
 
-**DeepSeek Harness**: [`plugins/deepseek-harness`](plugins/deepseek-harness).
+The SDKs are versioned and released on their own, and their packages are named `pinesandbox`. This
+repository works with the SDK's `0.3` line: `@pinesandbox/computer` 0.3.5 or newer, `@pinesandbox/computer-web`
+0.3.8 or newer.
 
-**OpenMausBot, nightly-labs OpenBot, CopilotKit OpenBot, hosted MCP, A2A and AG-UI**: [`docs/cli.md`](docs/cli.md).
+## Built on Pine Computer
 
-Then ask for something that needs a computer:
+Real products, each with its own model, logic and interface.
 
-> Use the Pine Computer to open quotes.toscrape.com, collect the first two pages of quotes, and make me a
-> one-page PDF brief of them grouped by author.
+| | |
+| --- | --- |
+| [**Starter**](examples/starter/) | A complete product to rename and ship: sessions side by side, the work live, the controls, skills, a vault, files in and out, schedules. Start here. |
+| [**Tavus video agent**](examples/tavus-video-agent/) | A video agent takes a customer's call and hands the claim to a Pine Computer, which files it while they talk. |
+| [**Drama Studio**](https://github.com/PineComputer/open-pinedrama) | A studio for makers of AI vertical short dramas: agents, each on its own Computer, take a screenplay to a cut, and you review where they ask. |
 
-## How a job goes
+<p align="center">
+  <img src="examples/tavus-video-agent/docs/film.jpg" alt="The Tavus video agent, from a recorded call: the video agent on the left, every handoff in the middle, the Computer's desktop with the submitted claim on the right" width="100%">
+  <br>
+  <sub>From a recorded call: the video agent, every handoff, and the Computer's desktop with the claim submitted.</sub>
+</p>
 
-- **A message starts a job.** The Computer's agent works on its own. Its steps stream back as it goes
-  ("Open a page", "Fill in “Email address”", "Create report.pdf"), and its summary is the reply.
-- **A question ends the turn.** When it needs something only the person has, or before anything that spends
-  money, sends or submits, it stops and asks. The person's next message answers it.
-- **The thread remembers.** Each thread has its own session on the Computer, so a follow-up ("now make it a
-  PDF") builds on what it did. Sign-ins are shared by every thread.
-- **The screen is there.** Every thread has a live desktop page: watch the Computer work, take the controls,
-  hand them back.
-- **Files come back.** Files a job makes are copied next to your workspace and linked in the reply. Files you
-  attach go up to the Computer with the message.
-- **Passwords stay out of the model.** A named secret is typed by the Computer as `$NAME` without the model
-  seeing it.
+## Inside the agent apps you use
+
+Where an agent app has a plugin system, Pine Computer goes in as a plugin built on the SDK, using the app's
+own questions, credentials and skills. Where it speaks a protocol, the Computer joins as a tool or as a
+coworker with a screen of its own.
+
+| | |
+| --- | --- |
+| [**DeepSeek Harness**](plugins/deepseek-harness) | A plugin in its own plugin system, with secrets from its credential store. |
+| [**OpenMausBot**](docs/cli.md#openmausbot) | A bot in the chat, or a tool another bot hands work to. |
+| [**Claude Code**](#or-over-a-protocol) | A plugin: the tools and the skill together. |
 
 <table>
   <tr>
@@ -174,43 +196,48 @@ Then ask for something that needs a computer:
   </tr>
 </table>
 
-## Built on Pine Computer
+## Or over a protocol
 
-Real products, each with its own model, logic and interface. The starter and the Tavus video agent are whole
-apps in [`examples/`](examples/): open a folder and run it.
+`pine-computer` is a CLI, built on the same SDK, that puts one Computer behind the protocols agent apps
+already speak. You run it with your own key.
 
-| | |
-| --- | --- |
-| [**Starter**](examples/starter/) | A complete product to rename and ship: sessions side by side, the work live, the controls, skills, a vault, files in and out. Start here. |
-| [**Drama Studio**](https://github.com/PineComputer/open-pinedrama) | A studio for makers of AI vertical short dramas: agents, each on its own Computer, take a screenplay to a cut, and you review where they ask. |
-| [**Tavus video agent**](examples/tavus-video-agent/) | A video agent takes a customer's call and hands the claim to a Pine Computer, which files it while they talk. |
+| | For | What the app sees |
+| --- | --- | --- |
+| **A tool** · `pine-computer mcp` | Agents that call tools | Four tools: `computer_task`, `computer_wait`, `computer_cancel`, `computer_desktop` |
+| **A server** · `pine-computer serve` | Web apps and agent platforms, over HTTP | The same tools at `/mcp`, an A2A agent at `/a2a` with its card, and an AG-UI agent at `/agui` |
+| **A coworker** · `pine-computer acp` | Apps that run agents over the Agent Client Protocol | A bot. Each chat thread is a thread on the Computer; its steps show as it works; its summary is the reply |
+| **The terminal** · `pine-computer run "…"` | You | One job, its steps as it goes |
 
-<p align="center">
-  <img src="examples/starter/docs/screenshot.jpg" alt="The starter: the agent's work and answer on the left, the Computer's live screen on the right" width="100%">
-  <br>
-  <sub>The starter: the agent's work on the left, the Computer's live screen on the right.</sub>
-</p>
+You need a Pine Computer project key ([pinecomputer.io](https://pinecomputer.io)) and Node.js 22 or newer.
 
-## Build it into your product
+```sh
+git clone https://github.com/PineComputer/pine-computer && cd pine-computer
+npm install && npm run build && npm link          # puts `pine-computer` on your PATH
 
-The CLI in this repository is built on the same SDKs your product can use directly: create a Computer, hand
-it a job, embed its live screen, take the controls, bring the work back.
+mkdir -p ~/.pine-computer && chmod 700 ~/.pine-computer
+printf 'PINE_SANDBOX_API_KEY=…\nPINE_SANDBOX_ENDPOINT=…\n' > ~/.pine-computer/env && chmod 600 ~/.pine-computer/env
 
-- Server SDK for TypeScript: [`@pinesandbox/computer`](https://www.npmjs.com/package/@pinesandbox/computer)
-- Web SDK, the live desktop in your page: [`@pinesandbox/computer-web`](https://www.npmjs.com/package/@pinesandbox/computer-web)
-- Every SDK and the full guide: [developer docs](https://console.pinecomputer.io/docs)
+pine-computer run "Open https://news.ycombinator.com and tell me the top 3 stories."
+```
 
-The [starter](examples/starter/) is the shortest path from the SDK to a
-product.
+Claude Code, as a plugin:
 
-The SDKs are versioned and released on their own, and their packages are named `pinesandbox`. This
-repository works with the SDK's `0.3` line: `@pinesandbox/computer` 0.3.5 or newer, `@pinesandbox/computer-web`
-0.3.8 or newer. Each SDK package carries the guide for its own version, which is what the
-[`pine-computer-sdk`](skills/pine-computer-sdk/SKILL.md) skill sends a coding agent to read.
+```
+/plugin marketplace add PineComputer/pine-computer
+/plugin install pine-computer@pine-computer
+```
 
-A Computer also has skills of its own: ways of working its agent learns, or that you teach it, and that stay
-with the Computer. Those are part of the product, managed through the SDK, and are not the skills in this
-repository.
+Any agent with an MCP setting:
+
+```json
+{ "mcpServers": { "pine-computer": { "command": "pine-computer", "args": ["mcp"] } } }
+```
+
+Through a protocol a job still streams its steps, asks its question, keeps its thread, shows its live
+desktop on a page of its own, brings files back and takes secrets by name. Skills, artifacts, parallel
+sessions and the desktop inside your own interface come with the SDK. [`docs/cli.md`](docs/cli.md) is the
+full reference, and [`skills/pine-computer`](skills/pine-computer/SKILL.md) teaches an agent when and how to
+hand work over.
 
 ## Status
 
