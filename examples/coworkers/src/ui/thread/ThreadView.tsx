@@ -1,10 +1,10 @@
 "use client";
 
-import { Hand, PanelRightClose, PanelRightOpen, Trash2 } from "lucide-react";
+import { PanelRightClose, PanelRightOpen, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { JobView } from "@/shared/api";
-import { fold, latest } from "@/shared/fold";
+import { fold } from "@/shared/fold";
 import { call, enc } from "../common/api";
 import { Avatar, Confirm } from "../common/kit";
 import { useWorkspace } from "../app/Workspace";
@@ -56,8 +56,6 @@ export function ThreadView({ id }: { id: string }) {
     await act(() => call(`${base}/control`, { body: { action } }));
     setControlBusy(false);
   };
-  const driving = thread.status === "yours";
-  const liveItems = last?.turnId ? work.get(last.turnId)?.items : undefined;
 
   return (
     <main className="main" data-panel={panel ? "open" : "closed"}>
@@ -93,7 +91,7 @@ export function ThreadView({ id }: { id: string }) {
               actions={{
                 onAnswer: (job, text) => jobAction(job, "answer", text),
                 onStop: (job) => void jobAction(job, "cancel"),
-                onLearn: thread.stream ? (job) => void jobAction(job, "learn") : undefined,
+                onLearn: thread.stream ? (job, text) => jobAction(job, "learn", text) : undefined,
                 onReview: setReview,
               }}
             />
@@ -115,24 +113,22 @@ export function ThreadView({ id }: { id: string }) {
               </button>
             </div>
             <span className="end">
-              {panel === "screen" && thread.stream ? (
-                <button
-                  className={`btn sm ${driving ? "human" : ""}`}
-                  aria-busy={controlBusy}
-                  disabled={controlBusy || (!driving && coworker.driving !== undefined)}
-                  title={!driving && coworker.driving ? "You're driving another of its threads: hand that back first" : undefined}
-                  onClick={() => void control(driving ? "release" : "take")}
-                >
-                  <Hand /> {driving ? "Hand back" : "Take control"}
-                </button>
-              ) : null}
               <button className="btn ghost sm icon" title="Hide this panel" aria-label="Hide this panel" onClick={() => setPanel(null)}>
                 <PanelRightClose />
               </button>
             </span>
           </header>
           {panel === "screen" ? (
-            <Screen coworker={coworker} thread={thread} doing={liveItems ? latest(liveItems) : undefined} idleDeadline={idleDeadline} onRelease={() => void control("release")} />
+            <Screen
+              coworker={coworker}
+              thread={thread}
+              jobs={jobs}
+              work={work}
+              idleDeadline={idleDeadline}
+              controlBusy={controlBusy}
+              onControl={(action) => void control(action)}
+              onStart={() => act(() => call(`/api/coworkers/${enc(coworker.id)}`, { body: { action: "start" } }))}
+            />
           ) : (
             <Profile coworker={coworker} />
           )}

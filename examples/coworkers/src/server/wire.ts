@@ -3,8 +3,13 @@ import type { AgentEvent, ControlEvent } from "@pinesandbox/computer";
 import type { WireControl, WireEvent } from "@/shared/events";
 import { words } from "./http";
 
-/** The SDK's event, as the page needs it; null for types the page doesn't draw. */
-export function toWire(event: AgentEvent): WireEvent | null {
+const BLANK_BYTES = 8_000;
+
+/**
+ * The SDK's event, as the page needs it; null for types the page doesn't draw. A picture
+ * of the screen goes to the page as a data URL, unless `picture` says where it is kept.
+ */
+export function toWire(event: AgentEvent, picture?: (data: Uint8Array, mediaType: string) => string): WireEvent | null {
   const base = { id: event.eventId, turnId: event.turnId, at: event.ts?.getTime() ?? Date.now(), type: event.type };
   switch (event.type) {
     case "input": {
@@ -19,7 +24,14 @@ export function toWire(event: AgentEvent): WireEvent | null {
       const activity = event.activity();
       if (!activity) return null;
       const { id, state, kind, title, facts } = activity;
-      return { ...base, step: { id, state, kind, title, url: facts?.page?.url } };
+      return { ...base, step: { id, state, kind, title, url: facts?.page?.url, page: facts?.page?.title } };
+    }
+    case "frame": {
+      const frame = event.frame();
+      // A picture this small is a blank screen (a page that hasn't painted yet): it says nothing.
+      if (!frame || frame.data.byteLength < BLANK_BYTES) return null;
+      const src = picture ? picture(frame.data, frame.mediaType) : `data:${frame.mediaType};base64,${Buffer.from(frame.data).toString("base64")}`;
+      return { ...base, frame: { src, stepId: frame.activity?.id } };
     }
     case "controller_changed":
       return { ...base, controller: event.controller };

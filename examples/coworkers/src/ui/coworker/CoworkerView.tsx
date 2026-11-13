@@ -48,19 +48,23 @@ export function CoworkerView({ id }: { id: string }) {
                 A message starts a thread: one job on {coworker.name}&apos;s own computer, and every follow-up builds on it. You can watch the screen, step in, and answer when it asks.
               </p>
               {coworker.suggestion ? (
-                <div>
-                  <button
-                    className="try"
-                    disabled={starting}
-                    onClick={async () => {
-                      setStarting(true);
-                      await newThread(coworker.id, coworker.suggestion!);
-                      setStarting(false);
-                    }}
-                  >
-                    <ArrowRight /> {coworker.suggestion}
-                  </button>
-                </div>
+                <button
+                  className="try"
+                  disabled={starting}
+                  onClick={async () => {
+                    setStarting(true);
+                    await newThread(coworker.id, coworker.suggestion!);
+                    setStarting(false);
+                  }}
+                >
+                  <span>
+                    <small>Try this</small>
+                    {coworker.suggestion}
+                  </span>
+                  <span className="go">
+                    <ArrowRight />
+                  </span>
+                </button>
               ) : null}
             </div>
           </div>

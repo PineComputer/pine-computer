@@ -1,6 +1,6 @@
 // A thread as it happens, relayed to the page as server-sent events: the coworker's
-// public activity (default events) and changes in who drives (`control` events). The
-// pictures of the screen are left out: the live desktop is right beside the thread.
+// public activity (default events, with the pictures of the screen its steps leave, for
+// the trail under the live desktop) and changes in who drives (`control` events).
 //
 // Each event's id carries both cursors and the agent's Task, so the page's EventSource
 // resumes both streams from where it was after a dropped connection.
@@ -42,7 +42,7 @@ export const GET = route<{ thread: string }>(async (request, { thread }) => {
           send(sse({ taskId: task }, { id: id(), event: "task" }));
         }
         try {
-          for await (const event of target.agent.events({ lastEventId: agent || undefined, expectedTaskId: task, frames: false, signal })) {
+          for await (const event of target.agent.events({ lastEventId: agent || undefined, expectedTaskId: task, signal })) {
             agent = String(event.eventId);
             const wire = toWire(event);
             if (wire) send(sse(wire, { id: id() }));

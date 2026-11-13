@@ -3,29 +3,33 @@
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
-/** Dark or light; remembered in this browser only. */
+const systemDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+/** Light or dark. It follows the system until the person chooses; the choice is remembered in this browser only. */
 export function ThemeToggle() {
-  const [light, setLight] = useState(false);
-  useEffect(() => setLight(document.documentElement.dataset.theme === "light"), []);
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const chosen = document.documentElement.dataset.theme;
+    setDark(chosen ? chosen === "dark" : systemDark());
+  }, []);
+  const label = dark ? "Switch to light" : "Switch to dark";
   return (
     <button
       className="btn ghost sm icon"
-      title={light ? "Switch to dark" : "Switch to light"}
-      aria-label={light ? "Switch to dark" : "Switch to light"}
+      title={label}
+      aria-label={label}
       onClick={() => {
-        const next = !light;
-        setLight(next);
-        if (next) document.documentElement.dataset.theme = "light";
-        else delete document.documentElement.dataset.theme;
+        const next = dark ? "light" : "dark";
+        setDark(!dark);
+        document.documentElement.dataset.theme = next;
         try {
-          if (next) localStorage.setItem("theme", "light");
-          else localStorage.removeItem("theme");
+          localStorage.setItem("theme", next);
         } catch {
           // private windows: the choice lasts until the page closes
         }
       }}
     >
-      {light ? <Sun /> : <Moon />}
+      {dark ? <Sun /> : <Moon />}
     </button>
   );
 }

@@ -14,7 +14,7 @@ export function offset(ms: number): string {
 }
 
 export function clock(at: number): string {
-  return new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 /** "3 min ago", "2 h ago", or a date. */
@@ -39,12 +39,4 @@ export function size(bytes: number): string {
 
 export function kindOf(path: string): string {
   return /\.([a-z0-9]{1,5})$/i.exec(path)?.[1]?.toUpperCase() ?? "FILE";
-}
-
-export function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
 }

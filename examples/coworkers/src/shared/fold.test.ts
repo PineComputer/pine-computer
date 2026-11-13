@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { question } from "./api";
 import type { WireEvent } from "./events";
-import { fold, latest, stepCount } from "./fold";
+import { fold } from "./fold";
 
 const event = (id: number, extra: Partial<WireEvent>): WireEvent => ({ id, turnId: "t1", at: 1000 * id, type: "x", ...extra });
 const step = (id: string, state: string, title = "Open a page") => ({ step: { id, state, kind: "browser", title } });
@@ -17,8 +17,20 @@ describe("fold", () => {
     ]).get("t1")!;
     expect(work.items.map((item) => item.kind)).toEqual(["note", "step", "step"]);
     expect(work.items[1]).toMatchObject({ id: "s1", state: "completed", at: 3000 });
-    expect(stepCount(work.items)).toBe("2 steps");
-    expect(latest(work.items)).toBe("Read the page");
+  });
+
+  it("gives a step the last picture of the screen it left", () => {
+    const work = fold([
+      event(1, step("s1", "running")),
+      event(2, { frame: { src: "a", stepId: "s1" } }),
+      event(3, { frame: { src: "b", stepId: "s1" } }),
+      event(4, step("s2", "completed")),
+      event(5, { frame: { src: "c" } }),
+    ]).get("t1")!;
+    expect(work.items).toMatchObject([
+      { id: "s1", shot: "b" },
+      { id: "s2", shot: "c" },
+    ]);
   });
 
   it("ignores an event it has already folded", () => {

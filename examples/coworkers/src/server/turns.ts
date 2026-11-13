@@ -1,7 +1,8 @@
 // A job's outcome, as this app keeps it. Pine retains a session's turns and events
 // while its sandbox lives; the answer, the steps and the files a person came for belong
-// in your product, so each ended turn is recorded here and its files copied in. The
-// worker (src/server/worker.ts) does it whether or not a page is open.
+// in your product, so each ended turn is recorded here, its files copied in and the
+// pictures of the screen its steps left saved beside them. The worker
+// (src/server/worker.ts) does it whether or not a page is open.
 
 import "server-only";
 import { mkdir, rm, stat, writeFile } from "node:fs/promises";
@@ -13,6 +14,7 @@ import { DATA_DIR, read, update, type JobRecord, type TurnFile } from "./store";
 import { toWire } from "./wire";
 
 const FILES_DIR = path.join(DATA_DIR, "files");
+const SHOTS_DIR = path.join(DATA_DIR, "shots");
 
 /** Where a returned file is kept, refusing any path that would leave the job's folder. */
 export function storedFile(job: string, relativePath: string): string {
@@ -22,8 +24,14 @@ export function storedFile(job: string, relativePath: string): string {
   return file;
 }
 
+/** Where a picture of the screen from a job's trail is kept; `name` is its event's id and its type. */
+export function storedShot(job: string, name: string): string {
+  if (!/^\d+\.(webp|png|jpeg)$/.test(name)) throw new Error("That isn't a picture from the job's trail.");
+  return path.join(SHOTS_DIR, path.basename(job), name);
+}
+
 export async function forgetFiles(jobs: string[]): Promise<void> {
-  await Promise.all(jobs.map((id) => rm(path.join(FILES_DIR, path.basename(id)), { recursive: true, force: true })));
+  await Promise.all(jobs.flatMap((id) => [FILES_DIR, SHOTS_DIR].map((dir) => rm(path.join(dir, path.basename(id)), { recursive: true, force: true }))));
 }
 
 const ENDED = new Set(["needs_input", "answered", "completed", "failed", "canceled"]);
@@ -70,7 +78,10 @@ async function syncOnce(session: Session, job: string, waitMs: number): Promise<
     await writeFile(target, await session.openFile(ref.relativePath));
     files.push({ path: ref.relativePath, size: (await stat(target)).size, contentType: ref.contentType });
   }
-  const items = await steps(session, turn).catch(() => [] as Item[]);
+  const items = await steps(session, turn, job).catch((error) => {
+    console.error("turns: reading a job's steps:", error);
+    return [] as Item[];
+  });
 
   return update((data) => {
     const record = data.jobs.find((j) => j.id === job);
@@ -89,18 +100,30 @@ async function syncOnce(session: Session, job: string, waitMs: number): Promise<
   });
 }
 
-/** The turn's steps and notes, read back from the session's retained events, without the pictures. */
-async function steps(session: Session, turn: AgentTurn): Promise<Item[]> {
+/**
+ * The turn's steps and notes, read back from the session's retained events. Each
+ * picture of the screen is saved under the job, and its step keeps the picture's name.
+ */
+async function steps(session: Session, turn: AgentTurn, job: string): Promise<Item[]> {
   const events: WireEvent[] = [];
+  const pictures: Promise<void>[] = [];
+  await mkdir(path.dirname(storedShot(job, "0.webp")), { recursive: true });
   let after = Math.max(0, turn.firstEventId - 1);
   while (after < turn.lastEventId) {
-    const page = await session.agent.eventsPage({ after, limit: 200, frames: false });
+    // Pictures make a page heavy: read a few events at a time.
+    const page = await session.agent.eventsPage({ after, limit: 40 });
     for (const event of page.events) {
-      const wire = event.eventId <= turn.lastEventId ? toWire(event) : null;
+      if (event.eventId > turn.lastEventId) continue;
+      const wire = toWire(event, (data, mediaType) => {
+        const name = `${event.eventId}.${mediaType.split("/")[1] ?? "webp"}`;
+        pictures.push(writeFile(storedShot(job, name), data));
+        return name;
+      });
       if (wire) events.push(wire);
     }
     if (page.nextAfter <= after) break;
     after = page.nextAfter;
   }
+  await Promise.all(pictures);
   return fold(events).get(turn.turnId)?.items ?? [];
 }

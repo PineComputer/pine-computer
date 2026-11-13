@@ -8,17 +8,27 @@ import type { Status } from "@/shared/api";
 
 const STATUS_WORDS: Record<Status, string> = { idle: "Idle", working: "Working", asking: "Has a question for you", yours: "You have its controls" };
 
-/** A monogram in the coworker's own colour; with `status`, a dot at its corner. */
-export function Avatar({ name, color, status, size }: { name: string; color: string; status?: Status; size?: "sm" | "lg" }) {
+/**
+ * A coworker: a serif monogram on a seal of its own colour. With `status`, the ring
+ * around it says what it is doing: turning while it works, amber when it's your turn.
+ */
+export function Avatar({ name, color, status, size }: { name: string; color: string; status?: Status; size?: "sm" | "lg" | "xl" }) {
   return (
-    <span className={`avatar ${size ?? ""}`} data-color={color} aria-hidden={status ? undefined : true}>
+    <span
+      className={`avatar ${size ?? ""}`}
+      data-color={color}
+      data-status={status}
+      role={status ? "img" : undefined}
+      aria-label={status ? `${name}: ${STATUS_WORDS[status]}` : undefined}
+      aria-hidden={status ? undefined : true}
+      title={status && status !== "idle" ? STATUS_WORDS[status] : undefined}
+    >
       {name[0]?.toUpperCase()}
-      {status ? <i className="dot" data-status={status} role="img" aria-label={STATUS_WORDS[status]} title={STATUS_WORDS[status]} /> : null}
     </span>
   );
 }
 
-export function Dialog({ children, onClose, wide }: { children: ReactNode; onClose: () => void; wide?: boolean }) {
+export function Dialog({ children, onClose, wide, className }: { children: ReactNode; onClose: () => void; wide?: boolean; className?: string }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -26,7 +36,7 @@ export function Dialog({ children, onClose, wide }: { children: ReactNode; onClo
   }, [onClose]);
   return createPortal(
     <div className="overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <div className={`dialog ${wide ? "wide" : ""}`} role="dialog" aria-modal="true">
+      <div className={`dialog ${wide ? "wide" : ""} ${className ?? ""}`} role="dialog" aria-modal="true">
         {children}
       </div>
     </div>,

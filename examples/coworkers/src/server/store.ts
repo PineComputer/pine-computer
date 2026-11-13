@@ -76,10 +76,12 @@ export interface TurnFile {
 
 /** A skill drafted from this job's run. */
 export interface LearnRecord {
-  /** drafting | draft | active | none */
+  /** drafting | asks | draft | active | none */
   state: string;
   name?: string;
   version?: number;
+  /** What the skill author needs to know before it writes a draft. */
+  questions?: string[];
   /** Why no draft came of it. */
   reason?: string;
   startedAt: string;

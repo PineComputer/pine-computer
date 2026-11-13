@@ -10,7 +10,9 @@
 
 import "server-only";
 import { randomBytes } from "node:crypto";
+import { TerminalReason, type AgentEvent } from "@pinesandbox/computer";
 import { APPROVAL_MARK } from "@/shared/api";
+import { titleOf } from "@/shared/title";
 import { explain, HttpError } from "./http";
 import { computer, ensureComputer, ensureSession, requireSession, Waiting } from "./pine";
 import { read, update, type CoworkerRecord, type JobRecord, type StoreData } from "./store";
@@ -39,9 +41,6 @@ export function context(coworker: Pick<CoworkerRecord, "name" | "role" | "brief"
 }
 
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max)}…` : text);
-
-/** A thread's name in the sidebar, from its first message. */
-export const titleOf = (goal: string) => clip(goal.replace(/https?:\/\/(www\.)?/g, "").replace(/\s+/g, " ").trim(), 56);
 
 /** Opens a new thread with a coworker and gives it its first job. */
 export async function openThread(coworker: string, goal: string, key: string): Promise<string> {
@@ -160,30 +159,67 @@ export async function cancel(thread: string, id: string): Promise<void> {
 // ---- teach it ---------------------------------------------------------------------
 
 /**
- * Drafts a skill from the thread's last finished job. Authoring runs on its own model
- * for a minute or three, so it runs in the background and the draft is noted on the
- * job; it reaches no agent until a person reads and activates it.
+ * What the skill author starts from: what the job was asked to do, which parts of it
+ * change from job to job, and anything the person added. The author reads the run
+ * itself; this tells it what the run was for, so it doesn't have to guess.
  */
-export async function learn(thread: string, id: string): Promise<void> {
+export function scaffold(title: string, ask: string, guidance?: string): string {
+  const lines = [
+    `# ${title}`,
+    "",
+    "Use this skill for requests like the one below. The people, products, dates and other particulars it names are inputs: they change from job to job. Sign-in details come with each job and are never part of the skill.",
+    "",
+    "The request this skill was learned from:",
+    "",
+    ...ask.split("\n").map((line) => `> ${line}`),
+  ];
+  if (guidance) lines.push("", "From the person who asked for this skill:", "", guidance);
+  return lines.join("\n");
+}
+
+/**
+ * Drafts a skill from the thread's last finished job. Authoring runs on its own model
+ * for a minute or three, so it runs in the background and the outcome is noted on the
+ * job: a draft, which reaches no agent until a person reads and activates it; questions
+ * the author needs answered first (send them back as `guidance`); or why none came of it.
+ */
+export async function learn(thread: string, id: string, guidance?: string): Promise<void> {
   const job = await jobIn(thread, id);
   if (job.state !== "completed") throw new HttpError(409, "Only a finished job can be saved as a skill.");
+  if (job.learn?.state === "drafting") return;
   const session = await requireSession(thread);
+  const data = await read();
+  const title = data.threads.find((t) => t.id === thread)?.title ?? titleOf(job.ask);
+  // A reply carried the job on: the request is the message that began it.
+  const began = data.jobs.findLast((j) => j.thread === thread && j.kind === "run" && j.askedAt <= job.askedAt) ?? job;
   const note = (learned: JobRecord["learn"]) =>
-    update((data) => {
-      const record = data.jobs.find((j) => j.id === id);
+    update((next) => {
+      const record = next.jobs.find((j) => j.id === id);
       if (record) record.learn = learned;
     });
   const startedAt = new Date().toISOString();
   await note({ state: "drafting", startedAt });
-  void session
-    .learn()
-    .then((result) => {
-      const draft = result.draft as { name?: string; version?: number } | undefined;
-      return result.learned && draft?.name
-        ? note({ state: "draft", name: draft.name, version: Number(draft.version), startedAt })
-        : note({ state: "none", reason: result.reason || "Nothing in this job was worth keeping as a skill.", startedAt });
-    })
-    .catch((error) => note({ state: "none", reason: explain(error).error, startedAt }));
+
+  // learn() waits for the outcome but keeps only a sentence of it; following the run's
+  // own events keeps the author's questions too.
+  const drafted = async () => {
+    const run = await session.startLearn({ scaffold: scaffold(title, began.ask, guidance) });
+    let result: ReturnType<AgentEvent["result"]>;
+    for await (const event of session.authorEvents(run.authorId)) result = event.result() ?? result;
+    const draft = result?.author?.draft as { name?: string; version?: number } | undefined;
+    switch (result?.terminalReason) {
+      case TerminalReason.draftRegistered:
+        if (!draft?.name) throw new HttpError(502, "The Computer wrote a draft but didn't say which.");
+        return note({ state: "draft", name: draft.name, version: Number(draft.version), startedAt });
+      case TerminalReason.clarificationRequested:
+        return note({ state: "asks", questions: result.author?.questions ?? [], reason: result.summary || undefined, startedAt });
+      case TerminalReason.notReusable:
+        return note({ state: "none", reason: result.summary || "Nothing in this job was worth keeping as a skill.", startedAt });
+      default:
+        return note({ state: "none", reason: result?.summary || `The skill author stopped (${result?.terminalReason ?? "no result"}).`, startedAt });
+    }
+  };
+  void drafted().catch((error) => note({ state: "none", reason: explain(error).error, startedAt }));
 }
 
 /** A coworker's learned skills, read from its Computer and kept for when it's stopped. */

@@ -56,7 +56,8 @@ export interface JobView {
   cost?: number | null;
   items?: Item[];
   files?: { path: string; size: number; contentType: string }[];
-  learn?: { state: string; name?: string; version?: number; reason?: string; startedAt: string };
+  /** drafting | asks (the skill author has questions) | draft | active | none */
+  learn?: { state: string; name?: string; version?: number; questions?: string[]; reason?: string; startedAt: string };
 }
 
 export interface SecretView {

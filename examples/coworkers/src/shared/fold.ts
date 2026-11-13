@@ -1,12 +1,13 @@
 // Folds a coworker's public events into the rows a thread draws under its message. The
 // page folds the live stream; the server folds the same events once more when a job
 // ends, to keep its steps after the Computer stops. It reads only typed fields the
-// Computer sends and never parses the words: titles and notes are shown as written.
+// Computer sends; how a step is worded for the page is in ./steps.
 
 import type { Outcome, WireEvent } from "./events";
 
 export type Item =
-  | { kind: "step"; id: string; title: string; state: string; type: string; url?: string; at: number }
+  /** `shot`: the last picture of the screen the step left (see WireEvent.frame). */
+  | { kind: "step"; id: string; title: string; state: string; type: string; url?: string; page?: string; shot?: string; at: number }
   /** What the coworker says it is doing. */
   | { kind: "note"; id: string; text: string; at: number }
   /** A message the person sent while it worked. */
@@ -49,14 +50,18 @@ export function fold(events: readonly WireEvent[]): Map<string, Work> {
       workFor(event).items.push({ kind: "note", id, text: event.progress.text, at: event.at });
     } else if (event.step) {
       // A step is sent when it starts and again when it ends: one row, updated.
-      const { id: stepId, title, state, kind, url } = event.step;
+      const { id: stepId, title, state, kind, url, page } = event.step;
       const known = steps.get(stepId);
-      if (known) Object.assign(known, { title, state, url: url ?? known.url });
+      if (known) Object.assign(known, { title, state, url: url ?? known.url, page: page ?? known.page });
       else {
-        const item = { kind: "step" as const, id: stepId, title, state, type: kind, url, at: event.at };
+        const item = { kind: "step" as const, id: stepId, title, state, type: kind, url, page, at: event.at };
         steps.set(stepId, item);
         workFor(event).items.push(item);
       }
+    } else if (event.frame) {
+      // A picture belongs to the step it names, or else to the latest step of its turn.
+      const owner = (event.frame.stepId && steps.get(event.frame.stepId)) || turns.get(event.turnId)?.items.findLast((item) => item.kind === "step");
+      if (owner?.kind === "step") owner.shot = event.frame.src;
     } else if (event.controller) {
       current?.items.push({ kind: "control", id, who: event.controller, at: event.at });
     } else if (event.outcome) {
@@ -64,20 +69,4 @@ export function fold(events: readonly WireEvent[]): Map<string, Work> {
     }
   }
   return turns;
-}
-
-/** "12 steps", for the line a finished job settles into. */
-export function stepCount(items: readonly Item[]): string {
-  const n = items.filter((item) => item.kind === "step").length;
-  return `${n} ${n === 1 ? "step" : "steps"}`;
-}
-
-/** The latest thing it said or did, for the line beside a working coworker. */
-export function latest(items: readonly Item[]): string | undefined {
-  for (let i = items.length - 1; i >= 0; i -= 1) {
-    const item = items[i];
-    if (item.kind === "step") return item.title;
-    if (item.kind === "note") return item.text;
-  }
-  return undefined;
 }

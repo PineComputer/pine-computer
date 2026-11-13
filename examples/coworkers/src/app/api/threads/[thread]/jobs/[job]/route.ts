@@ -17,7 +17,8 @@ export const POST = route<{ thread: string; job: string }>(async (request, { thr
     case "cancel":
       return cancel(thread, job);
     case "learn":
-      return learn(thread, job);
+      // With `text`, the person's answers to the skill author's questions.
+      return learn(thread, job, text?.trim() || undefined);
     default:
       throw new HttpError(400, "Choose answer, steer, cancel or learn.");
   }

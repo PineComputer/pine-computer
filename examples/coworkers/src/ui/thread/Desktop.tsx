@@ -31,7 +31,7 @@ if (typeof document !== "undefined") {
  * The thread's live screen on its coworker's Computer. Watching sends no input; driving
  * is for a person who took control, which makes the coworker wait until they hand back.
  */
-export function Desktop({ thread, stream, driving, onProblem }: { thread: string; stream: string; driving: boolean; onProblem: (text: string | null) => void }) {
+export function Desktop({ thread, stream, driving, onProblem, onConnected }: { thread: string; stream: string; driving: boolean; onProblem: (text: string | null) => void; onConnected?: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
   const first = useRef<string | null>(null);
   const giveBackKeyboard = useCallback(() => {
@@ -74,6 +74,7 @@ export function Desktop({ thread, stream, driving, onProblem }: { thread: string
       onConnected={() => {
         onProblem(null);
         giveBackKeyboard();
+        onConnected?.();
       }}
       onError={({ error }) => onProblem(error instanceof Error ? error.message : "The desktop connection failed.")}
     />

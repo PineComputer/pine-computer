@@ -1,16 +1,17 @@
 "use client";
 
 // A thread, as a conversation: each message a person sent, and under it the coworker's
-// work on it. While a job runs its steps arrive live; once it ends they settle into one
-// line and the answer, a question or the reason it stopped is the coworker's message.
+// work on it. While a job runs, the last few steps show as they happen; once it ends
+// they settle into one line, and the answer, a question or the reason it stopped is the
+// coworker's message.
 
-import { Download, Sparkles } from "lucide-react";
+import { Download, Hand, Sparkles } from "lucide-react";
 import { useState } from "react";
-import { brand } from "@/brand";
 import { APPROVE, DECLINE, question, type CoworkerView, type JobView } from "@/shared/api";
-import { stepCount, type Item, type Work } from "@/shared/fold";
+import type { Item, Work } from "@/shared/fold";
+import { hostOf, rows, say, stepCount, stepsIn, type Said, type StepItem } from "@/shared/steps";
 import { enc } from "../common/api";
-import { clock, cost, duration, hostOf, kindOf, offset, size } from "../common/format";
+import { clock, cost, duration, kindOf, offset, size } from "../common/format";
 import { Avatar, useNow } from "../common/kit";
 import { Markdown } from "../common/Markdown";
 import { useWorkspace } from "../app/Workspace";
@@ -18,8 +19,8 @@ import { useWorkspace } from "../app/Workspace";
 export interface JobActions {
   onAnswer: (job: JobView, text: string) => Promise<boolean>;
   onStop: (job: JobView) => void;
-  /** Offered on the thread's latest finished job while its session is open. */
-  onLearn?: (job: JobView) => void;
+  /** Offered on the thread's latest finished job while its session is open; `text` answers the skill author's questions. */
+  onLearn?: (job: JobView, text?: string) => Promise<boolean>;
   onReview: (job: JobView) => void;
 }
 
@@ -44,20 +45,17 @@ function JobMessages({ coworker, job, live, latest, actions }: { coworker: Cowor
   const endedAt = job.endedAt ? Date.parse(job.endedAt) : live?.outcome?.at;
   const ms = job.durationMs ?? live?.outcome?.durationMs ?? (endedAt ? endedAt - askedAt : 0);
   const startedAt = live?.startedAt ?? askedAt;
+  const price = cost(ended ? job.cost : live?.outcome?.cost);
 
   return (
     <>
-      <article className="msg">
-        <span className="avatar you">{brand.you[0]}</span>
-        <div className="body">
-          <header className="who">
-            {brand.you}
-            {job.kind === "answer" ? <span className="muted">replied</span> : null}
-            <time>{clock(askedAt)}</time>
-          </header>
-          <Words text={job.ask} />
-        </div>
-      </article>
+      <div className="said">
+        <Words text={job.ask} />
+        <span className="meta">
+          {job.kind === "answer" ? <span>Your reply · </span> : null}
+          {clock(askedAt)}
+        </span>
+      </div>
       <article className="msg">
         <Avatar name={coworker.name} color={coworker.color} />
         <div className="body">
@@ -67,19 +65,12 @@ function JobMessages({ coworker, job, live, latest, actions }: { coworker: Cowor
           </header>
           {reason ? (
             <>
-              {items.length ? (
-                <details className="settled">
-                  <summary>
-                    {stepCount(items)} · {duration(ms)}
-                  </summary>
-                  <Steps items={items} startedAt={startedAt} live={false} />
-                </details>
-              ) : null}
+              <Settled items={items} startedAt={startedAt} ms={ms} price={price} />
               <Ending coworker={coworker} job={job} reason={reason} summary={summary} saved={ended} latest={latest} actions={actions} />
             </>
           ) : (
             <>
-              <Steps items={items} startedAt={startedAt} live />
+              <LiveWork items={items} startedAt={startedAt} />
               <Waiting coworker={coworker} job={job} startedAt={startedAt} onStop={() => actions.onStop(job)} />
             </>
           )}
@@ -108,51 +99,179 @@ function Words({ text }: { text: string }) {
   );
 }
 
-const STATE_WORDS: Record<string, string> = { running: "running", failed: "failed", declined: "not run", interrupted: "interrupted" };
-const CONTROL_WORDS: Record<string, string> = { human: "You took control", agent: "You handed back", locked: "Controls locked" };
+// ---- its steps ----------------------------------------------------------------------
 
-function Steps({ items, startedAt, live }: { items: Item[]; startedAt: number; live: boolean }) {
-  if (!items.length) return null;
+const CONTROL_WORDS: Record<string, string> = { human: "You took control", agent: "You handed back", locked: "Controls locked" };
+const STATE_WORDS: Record<string, string> = { failed: "failed", declined: "not run", interrupted: "interrupted" };
+
+/** What a step did: the words, then a command in mono or its site, quietly. */
+function SaidText({ said }: { said: Said }) {
+  return (
+    <span className="t" title={said.mono ?? said.text}>
+      <b>{said.text}</b>
+      {said.mono ? <code>{said.mono}</code> : said.quiet ? <i>{said.quiet}</i> : null}
+    </span>
+  );
+}
+
+/** One step inside a folded row: the page it opened, or the command it ran. */
+function inner(step: StepItem): Said {
+  const said = say(step);
+  if (said.mono || !step.url) return said.mono ? { text: "", mono: said.mono } : said;
+  const host = hostOf(step.url);
+  let path = "";
+  try {
+    path = new URL(step.url).pathname.replace(/\/$/, "");
+  } catch {
+    // not an address: the host alone
+  }
+  return step.page ? { text: step.page, quiet: `${host}${path}` } : { text: `${host}${path}` };
+}
+
+/** How a step, or a folded run of them, ended: the time into the job, or what went wrong. */
+function ended(state: string, at: number, startedAt: number, live: boolean): string {
+  // A step still running when its job ended has no outcome to show.
+  const shown = state === "running" && !live ? "interrupted" : state;
+  return shown === "running" ? "" : (STATE_WORDS[shown] ?? offset(at - startedAt));
+}
+
+/** A job's steps, folded: a run of the same step is one row that opens. */
+function Rows({ items, startedAt }: { items: Item[]; startedAt: number }) {
   return (
     <ol className="steps">
-      {items.map((item) => {
-        if (item.kind === "note") {
+      {rows(items).map((row) => {
+        if (row.kind === "note") {
           return (
-            <li key={item.id} data-kind="note">
-              <Markdown text={item.text} />
+            <li key={row.item.id} data-kind="note">
+              <Markdown text={row.item.text} />
             </li>
           );
         }
-        if (item.kind === "steer") {
+        if (row.kind === "steer") {
           return (
-            <li key={item.id} data-kind="steer">
-              <Words text={item.text} />
+            <li key={row.item.id} data-kind="steer">
+              <Words text={row.item.text} />
             </li>
           );
         }
-        if (item.kind === "control") {
+        if (row.kind === "control") {
           return (
-            <li key={item.id} data-kind="control">
+            <li key={row.item.id} className="step" data-kind="control">
               <i className="mark" />
-              <span className="t">{CONTROL_WORDS[item.who] ?? item.who}</span>
-              <span className="state">{offset(item.at - startedAt)}</span>
+              <span className="t">
+                <b>{CONTROL_WORDS[row.item.who] ?? row.item.who}</b>
+              </span>
+              <span className="state">{offset(row.item.at - startedAt)}</span>
             </li>
           );
         }
-        // A step still running when its job ended has no outcome to show.
-        const state = item.state === "running" && !live ? "interrupted" : item.state;
+        if (row.steps.length === 1) {
+          const step = row.steps[0];
+          const state = step.state === "running" ? "interrupted" : step.state;
+          return (
+            <li key={row.id} className="step" data-state={state}>
+              <i className="mark" />
+              <SaidText said={row.said} />
+              <span className="state">{ended(step.state, step.at, startedAt, false)}</span>
+            </li>
+          );
+        }
         return (
-          <li key={item.id} data-state={state}>
-            <i className="mark" />
-            <span className="t" title={item.title}>
-              {item.title}
-              {item.url ? <span className="host">{hostOf(item.url)}</span> : null}
-            </span>
-            <span className="state">{STATE_WORDS[state] ?? offset(item.at - startedAt)}</span>
+          <li key={row.id}>
+            <details>
+              <summary className="step">
+                <i className="mark" />
+                <SaidText said={row.said} />
+                <span className="state">
+                  {row.failed ? <span className="bad">{row.failed} failed · </span> : null}
+                  {offset(row.at - startedAt)}
+                </span>
+              </summary>
+              <ol className="steps inner">
+                {row.steps.map((step) => (
+                  <li key={step.id} className="step" data-state={step.state === "running" ? "interrupted" : step.state}>
+                    <SaidText said={inner(step)} />
+                    <span className="state">{ended(step.state, step.at, startedAt, false)}</span>
+                  </li>
+                ))}
+              </ol>
+            </details>
           </li>
         );
       })}
     </ol>
+  );
+}
+
+/** How many of the latest steps show while a job runs. */
+const TAIL = 4;
+
+/** A job under way: what it last said, and its last few steps as they happen. */
+function LiveWork({ items, startedAt }: { items: Item[]; startedAt: number }) {
+  if (!items.length) return null;
+  const note = items.findLast((item) => item.kind === "note");
+  const acts = items.filter((item) => item.kind !== "note");
+  const tail = acts.slice(-TAIL);
+  const before = items.slice(0, tail.length ? items.indexOf(tail[0]) : items.length).filter((item) => item !== note);
+  const earlier = stepsIn(before).length;
+  return (
+    <>
+      {earlier ? (
+        <details className="settled earlier">
+          <summary>
+            {earlier} earlier {earlier === 1 ? "step" : "steps"}
+          </summary>
+          <Rows items={before} startedAt={startedAt} />
+        </details>
+      ) : null}
+      {note?.kind === "note" ? <Markdown text={note.text} /> : null}
+      {tail.length ? (
+        <ol className="steps" aria-live="polite">
+          {tail.map((item) =>
+            item.kind === "steer" ? (
+              <li key={item.id} data-kind="steer">
+                <Words text={item.text} />
+              </li>
+            ) : item.kind === "control" ? (
+              <li key={item.id} className="step" data-kind="control">
+                <i className="mark" />
+                <span className="t">
+                  <b>{CONTROL_WORDS[item.who] ?? item.who}</b>
+                </span>
+                <span className="state">{offset(item.at - startedAt)}</span>
+              </li>
+            ) : item.kind === "step" ? (
+              <li key={item.id} className="step" data-state={item.state}>
+                <i className="mark" />
+                <SaidText said={say(item, true)} />
+                <span className="state">{ended(item.state, item.at, startedAt, true)}</span>
+              </li>
+            ) : null,
+          )}
+        </ol>
+      ) : null}
+    </>
+  );
+}
+
+/** A finished job's work in one line that opens: "12 steps · 1 min 40 s · $0.08". */
+function Settled({ items, startedAt, ms, price }: { items: Item[]; startedAt: number; ms: number; price: string | null }) {
+  const steps = stepsIn(items).length;
+  const facts = (
+    <>
+      {steps ? stepCount(items) : null}
+      {steps && ms ? <i>·</i> : null}
+      {ms ? <span className="mono">{duration(ms)}</span> : null}
+      {price && (steps || ms) ? <i>·</i> : null}
+      {price ? <span className="mono">{price}</span> : null}
+    </>
+  );
+  if (!items.length) return ms || price ? <p className="facts">{facts}</p> : null;
+  return (
+    <details className="settled">
+      <summary>{facts}</summary>
+      <Rows items={items} startedAt={startedAt} />
+    </details>
   );
 }
 
@@ -171,9 +290,9 @@ function Waiting({ coworker, job, startedAt, onStop }: { coworker: CoworkerView;
           : "Working";
   return (
     <p className="status-line">
-      <i className="dot" data-status={job.state === "queued" ? "asking" : "working"} />
+      <i className="pulse" data-status={job.state === "queued" ? "asking" : "working"} />
       {words}
-      {job.state === "running" ? <span className="mono muted">{offset(now - startedAt)}</span> : null}
+      {job.state === "running" ? <time>{offset(now - startedAt)}</time> : null}
       {job.state === "queued" ? (
         <button className="btn ghost sm end" onClick={onStop}>
           Remove from queue
@@ -183,84 +302,187 @@ function Waiting({ coworker, job, startedAt, onStop }: { coworker: CoworkerView;
   );
 }
 
+// ---- how it ended -------------------------------------------------------------------
+
 const ENDING_WORDS: Record<string, string> = { canceled: "Stopped", failed: "Didn't finish", stopped: "Its computer stopped before it finished" };
+const PICTURE = /\.(png|jpe?g|gif|webp)$/i;
+
+/** Words that only announce a file: "Done: …", "Here is the PDF: …". */
+const FILLER = /\b(?:done|here|here's|is|are|it|its|it's|the|your|you|a|an|i|i've|have|made|created|saved|attached|file|files|pdf|document|download|see|ready|finished|as|requested|link|for|to|this|one-page)\b/gi;
+
+/**
+ * The answer, unless all it does is link the files attached under it: then the
+ * attachments say it, once.
+ */
+function answerText(summary: string, attached: (path: string) => boolean): string {
+  const rest = summary.replace(/\[[^\]]*\]\(([^)\s]+)\)/g, (link, href: string) => {
+    let path = href.split(/[?#]/, 1)[0].replace(/^\.\//, "");
+    try {
+      path = decodeURIComponent(path);
+    } catch {
+      // as written
+    }
+    return attached(path) ? "" : link;
+  });
+  return /[\p{L}\p{N}]/u.test(rest.replace(FILLER, "")) ? summary : "";
+}
 
 function Ending({ coworker, job, reason, summary, saved, latest, actions }: { coworker: CoworkerView; job: JobView; reason: string; summary: string; saved: boolean; latest: boolean; actions: JobActions }) {
-  const fileUrl = (path: string) => (job.files?.some((file) => file.path === path) ? `/api/jobs/${enc(job.id)}/files/${path.split("/").map(enc).join("/")}` : null);
+  const attached = (path: string) => job.files?.some((file) => file.path === path) ?? false;
+  const fileUrl = (path: string) => (attached(path) ? `/api/jobs/${enc(job.id)}/files/${path.split("/").map(enc).join("/")}` : null);
 
   if (reason === "needs_input" || reason === "answered") {
     const asked = question(summary);
     const open = reason === "needs_input" && job.state === "needs_input";
     return (
       <div className="ask" data-answered={open ? undefined : ""}>
-        <span className="label">{asked.approval ? "Approval" : "Question"}</span>
+        <span className="label">
+          {open ? <Hand size={13} /> : null}
+          {asked.approval ? (open ? "Approval needed" : "Asked for approval") : open ? "A question for you" : "Asked"}
+        </span>
         <Markdown text={asked.text} fileUrl={fileUrl} />
         {open ? <Reply name={coworker.name} approval={asked.approval} onAnswer={(text) => actions.onAnswer(job, text)} onStop={() => actions.onStop(job)} /> : null}
       </div>
     );
   }
 
-  const price = cost(job.cost);
+  const text = answerText(summary, attached);
   return (
     <>
-      {summary ? <Markdown text={summary} fileUrl={fileUrl} /> : null}
+      {text ? <Markdown text={text} fileUrl={fileUrl} /> : null}
       {job.files?.length ? (
         <ul className="files" aria-label="Files it made">
           {job.files.map((file) => {
             const url = fileUrl(file.path)!;
             return (
               <li key={file.path} className="file">
-                <span className="kind">{kindOf(file.path)}</span>
-                <a className="path" href={`${url}?open`} target="_blank" rel="noopener noreferrer" title={`Open ${file.path}`}>
-                  {file.path}
-                </a>
-                <span className="size">{size(file.size)}</span>
-                <a className="btn ghost sm icon" href={url} aria-label={`Download ${file.path}`} title="Download">
-                  <Download />
-                </a>
+                {PICTURE.test(file.path) ? (
+                  <a className="preview" href={`${url}?open`} target="_blank" rel="noopener noreferrer" title={`Open ${file.path}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={`${url}?open`} alt={file.path} loading="lazy" />
+                  </a>
+                ) : null}
+                <div className="row">
+                  <span className="kind">{kindOf(file.path)}</span>
+                  <a className="path" href={`${url}?open`} target="_blank" rel="noopener noreferrer" title={`Open ${file.path}`}>
+                    {file.path}
+                  </a>
+                  <span className="size">{size(file.size)}</span>
+                  <a className="btn ghost sm icon" href={url} aria-label={`Download ${file.path}`} title="Download">
+                    <Download />
+                  </a>
+                </div>
               </li>
             );
           })}
         </ul>
       ) : null}
-      <div className="runline">
-        {reason !== "completed" ? <span>{ENDING_WORDS[reason] ?? "Didn't finish"}</span> : null}
-        {price ? <span className="mono">{price}</span> : null}
-        {!saved ? <span>Saving its work</span> : null}
-        {job.learn ? (
-          <LearnNote job={job} onReview={() => actions.onReview(job)} />
-        ) : latest && saved && reason === "completed" && actions.onLearn ? (
-          <button className="btn ghost sm" title={`Draft a skill from this job, for ${coworker.name} to reuse`} onClick={() => actions.onLearn!(job)}>
+      {reason !== "completed" || !saved ? (
+        <p className="runline">
+          {reason !== "completed" ? <span>{ENDING_WORDS[reason] ?? "Didn't finish"}</span> : null}
+          {!saved ? <span>Saving its work</span> : null}
+        </p>
+      ) : null}
+      {job.learn ? (
+        <LearnNote name={coworker.name} job={job} onReview={() => actions.onReview(job)} onLearn={latest && actions.onLearn ? (text) => actions.onLearn!(job, text) : undefined} />
+      ) : latest && saved && reason === "completed" && actions.onLearn ? (
+        <p className="runline">
+          <button className="btn ghost sm" title={`Draft a skill from this job, for ${coworker.name} to reuse`} onClick={() => void actions.onLearn!(job)}>
             <Sparkles /> Save as a skill
           </button>
-        ) : null}
-      </div>
+        </p>
+      ) : null}
     </>
   );
 }
 
-function LearnNote({ job, onReview }: { job: JobView; onReview: () => void }) {
-  const learn = job.learn!;
+const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1).replace(/\.*$/, ".");
+
+/** The skill author's questions, and a box to answer them in: the answers start the draft again. */
+function SkillQuestions({ questions, onAnswer }: { questions: string[]; onAnswer: (text: string) => Promise<boolean> }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
   return (
-    <span className="skill-note">
-      <Sparkles />
+    <form
+      className="ask skill-asks"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (!text.trim() || busy) return;
+        setBusy(true);
+        await onAnswer(text.trim());
+        setBusy(false);
+      }}
+    >
+      <span className="label">
+        <Sparkles size={13} /> Before it writes the skill
+      </span>
+      {questions.length ? (
+        <ol className="md">
+          {questions.map((q) => (
+            <li key={q}>{q}</li>
+          ))}
+        </ol>
+      ) : (
+        <p className="md">The job could be read more than one way. Say what the skill is for, and what changes from job to job.</p>
+      )}
+      <textarea className="textarea" rows={3} value={text} placeholder="Answer in a line or two" aria-label="Your answers" onChange={(event) => setText(event.target.value)} />
+      <div className="acts">
+        <button className="btn human" aria-busy={busy} disabled={busy || !text.trim()}>
+          Draft the skill
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** What came of "Save as a skill": a draft under way, questions first, a draft to read, a skill in use, or why not. */
+function LearnNote({ name, job, onReview, onLearn }: { name: string; job: JobView; onReview: () => void; onLearn?: (text?: string) => Promise<boolean> }) {
+  const learn = job.learn!;
+  if (learn.state === "asks" && onLearn) return <SkillQuestions questions={learn.questions ?? []} onAnswer={onLearn} />;
+  return (
+    <div className="skill-note" data-state={learn.state}>
+      <span className="glyph">
+        <Sparkles />
+      </span>
       {learn.state === "drafting" ? (
-        "Drafting a skill from this job. It takes a minute or three."
+        <span>
+          <b>Drafting a skill from this job</b>
+          <small>It takes a minute or three. Carry on meanwhile.</small>
+        </span>
       ) : learn.state === "draft" ? (
         <>
-          Skill drafted: <b className="mono">{learn.name}</b>
-          <button className="btn sm" onClick={onReview}>
-            Read and activate
+          <span>
+            <b className="mono">{learn.name}</b>
+            <small>A draft. {name} doesn&apos;t use it until you activate it.</small>
+          </span>
+          <button className="btn sm primary" onClick={onReview}>
+            Read the draft
           </button>
         </>
       ) : learn.state === "active" ? (
         <>
-          Skill active: <b className="mono">{learn.name}</b>
+          <span>
+            <b className="mono">{learn.name}</b>
+            <small>Active. {name} uses it from its next job on.</small>
+          </span>
+          <button className="btn sm ghost" onClick={onReview}>
+            Read
+          </button>
         </>
       ) : (
-        `No skill came of it: ${learn.reason ?? "nothing in it was worth keeping"}.`
+        <>
+          <span>
+            <b>No skill came of it</b>
+            <small>{learn.state === "asks" ? "The skill author had questions, and this thread's session has ended." : sentence(learn.reason ?? "Nothing in it was worth keeping")}</small>
+          </span>
+          {onLearn ? (
+            <button className="btn sm ghost" onClick={() => void onLearn()}>
+              Try again
+            </button>
+          ) : null}
+        </>
       )}
-    </span>
+    </div>
   );
 }
 
@@ -274,6 +496,12 @@ function Reply({ name, approval, onAnswer, onStop }: { name: string; approval: b
     if (await onAnswer(words.trim())) setText("");
     setBusy(null);
   };
+  // An approval leads with its two answers; a plain question leads with the reply, and ending the job sits beside it.
+  const end = (
+    <button type="button" className="btn ghost push" title="Close the question and end the job here" disabled={busy !== null} onClick={onStop}>
+      End job
+    </button>
+  );
   return (
     <>
       {approval ? (
@@ -284,6 +512,7 @@ function Reply({ name, approval, onAnswer, onStop }: { name: string; approval: b
           <button className="btn" aria-busy={busy === "decline"} disabled={busy !== null} onClick={() => void send(DECLINE, "decline")}>
             Decline
           </button>
+          {end}
         </div>
       ) : null}
       <form
@@ -297,9 +526,7 @@ function Reply({ name, approval, onAnswer, onStop }: { name: string; approval: b
         <button className="btn" aria-busy={busy === "reply"} disabled={busy !== null || !text.trim()}>
           Reply
         </button>
-        <button type="button" className="btn ghost" title="Close the question and end the job here" disabled={busy !== null} onClick={onStop}>
-          End job
-        </button>
+        {approval ? null : end}
       </form>
     </>
   );

@@ -11,6 +11,8 @@ export interface Step {
   title: string;
   /** The page a browser step ended on. */
   url?: string;
+  /** That page's title. */
+  page?: string;
 }
 
 export interface Outcome {
@@ -33,6 +35,11 @@ export interface WireEvent {
   input?: { kind: string; text: string };
   progress?: { text: string };
   step?: Step;
+  /**
+   * A picture of the screen after a step. `src` is a data URL on the live stream, and
+   * the name of the saved picture in a job's record.
+   */
+  frame?: { src: string; stepId?: string };
   /** Who drives now: agent, human or locked. */
   controller?: string;
   outcome?: Outcome;

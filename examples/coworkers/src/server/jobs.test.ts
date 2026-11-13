@@ -9,7 +9,7 @@ const dataDir = await mkdtemp(path.join(tmpdir(), "coworkers-jobs-"));
 process.env.COWORKERS_DATA_DIR = dataDir;
 process.env.COWORKERS_SECRET = "a-secret-for-the-tests-only";
 const { open, read, seal } = await import("./store");
-const { context, titleOf } = await import("./jobs");
+const { context, scaffold } = await import("./jobs");
 const { storedFile } = await import("./turns");
 const { secretValues, setSecret, listSecrets } = await import("./vault");
 
@@ -47,9 +47,13 @@ describe("context", () => {
   });
 });
 
-describe("titleOf", () => {
-  it("names a thread after its first message, without the scheme", () => {
-    expect(titleOf("Open https://news.ycombinator.com and\n give me the top three")).toBe("Open news.ycombinator.com and give me the top three");
+describe("scaffold", () => {
+  it("tells the skill author what the job was for, and what the person added", () => {
+    const text = scaffold("Quotes PDF", "Collect the quotes\nand make a PDF.", "Any site with quotes.");
+    expect(text).toContain("# Quotes PDF");
+    expect(text).toContain("> Collect the quotes\n> and make a PDF.");
+    expect(text).toContain("Any site with quotes.");
+    expect(scaffold("Quotes PDF", "Collect the quotes")).not.toContain("From the person");
   });
 });
 

@@ -14,7 +14,7 @@ export function seed(): CoworkerRecord[] {
       role: "Researcher",
       brief: "Finds things out on the open web. Reads the source pages herself, answers in a few plain lines, and links every claim to where it came from.",
       color: "moss",
-      suggestion: "Open https://news.ycombinator.com and give me the top three stories with one line each.",
+      suggestion: "Read the top five stories on Hacker News and tell me, in one line each, what people are arguing about in the comments.",
     },
     {
       id: "otto",
