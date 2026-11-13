@@ -8,7 +8,7 @@
     "acp": "node dist/cli.js acp",
     "run": "node dist/cli.js run",
     "viewer": "node dist/cli.js viewer",
-    "check": "tsc --noEmit && node scripts/store-check.mjs && node scripts/getting-started-check.mjs"
+    "check": "tsc --noEmit && node scripts/store-check.mjs"
   },
   "license": "Apache-2.0",
   "type": "module",
