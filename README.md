@@ -10,9 +10,9 @@
 <h1 align="center">Pine Computer</h1>
 
 <p align="center">
-  <b>A computer built for AI. Give the agent you already use a computer of its own.</b><br>
-  A whole cloud computer with an agent built in: hand it a job in plain words, watch it work,<br>
-  step in when it asks, and get the finished work back.
+  <b>Your product. Our computer.</b><br>
+  Every agent product is a face and a computer behind it. Pine Computer is the computer, finished:<br>
+  a whole cloud computer with an agent built in. Bring the model, the logic and the interface, and build the rest on it.
 </p>
 
 <p align="center">
@@ -32,16 +32,16 @@
 <br>
 
 <p align="center">
-  <img src="docs/showcase/pine-as-a-bot-openmausbot.gif" alt="A Pine Computer as a bot in a chat app: it takes a job, asks one question before submitting, gets a thumbs-up, and finishes, with its live desktop beside the chat" width="100%">
+  <img src="examples/tavus-video-agent/docs/film.jpg" alt="From a recorded call: a video agent on the left, every handoff in the middle, the Computer's desktop with the submitted claim on the right" width="100%">
   <br>
-  <sub>A Pine Computer as a coworker in a chat of bots: it does the job, asks before it submits, and shows its screen.</sub>
+  <sub>A product built on it, from a recorded call: the video agent talks to the customer while the Computer files the claim.</sub>
 </p>
 
 <p align="center">
   <a href="#what-a-computer-can-do">What it can do</a> ·
   <a href="#build-it-into-your-product">Build it in</a> ·
   <a href="#built-on-pine-computer">Built on it</a> ·
-  <a href="#inside-the-agent-apps-you-use">In agent apps</a> ·
+  <a href="#plugins">Plugins</a> ·
   <a href="#or-over-a-protocol">Protocols</a> ·
   <a href="#status">Status</a>
 </p>
@@ -157,7 +157,9 @@ repository works with the SDK's `0.3` line: `@pinesandbox/computer` 0.3.5 or new
 
 ## Built on Pine Computer
 
-Real products, each with its own model, logic and interface.
+A workspace of AI coworkers, a personal agent, a studio, a video agent that files the claim while it talks:
+each is a face on a computer, and the computer is the hard half. These are whole products with their own
+model, logic and interface, open source, on the same Computer. Clone one, rename it, ship it.
 
 | | |
 | --- | --- |
@@ -165,36 +167,15 @@ Real products, each with its own model, logic and interface.
 | [**Tavus video agent**](examples/tavus-video-agent/) | A video agent takes a customer's call and hands the claim to a Pine Computer, which files it while they talk. |
 | [**Drama Studio**](https://github.com/PineComputer/open-pinedrama) | A studio for makers of AI vertical short dramas: agents, each on its own Computer, take a screenplay to a cut, and you review where they ask. |
 
-<p align="center">
-  <img src="examples/tavus-video-agent/docs/film.jpg" alt="The Tavus video agent, from a recorded call: the video agent on the left, every handoff in the middle, the Computer's desktop with the submitted claim on the right" width="100%">
-  <br>
-  <sub>From a recorded call: the video agent, every handoff, and the Computer's desktop with the claim submitted.</sub>
-</p>
+## Plugins
 
-## Inside the agent apps you use
-
-Where an agent app has a plugin system, Pine Computer goes in as a plugin built on the SDK, using the app's
-own questions, credentials and skills. Where it speaks a protocol, the Computer joins as a tool or as a
-coworker with a screen of its own.
+An agent harness decides what should happen and has nowhere for it to happen. Where a harness has a plugin
+system, Pine Computer goes in as a plugin built on the SDK, using the harness's own credentials and skills.
 
 | | |
 | --- | --- |
 | [**DeepSeek Harness**](plugins/deepseek-harness) | A plugin in its own plugin system, with secrets from its credential store. |
-| [**OpenMausBot**](docs/cli.md#openmausbot) | A bot in the chat, or a tool another bot hands work to. |
-| [**Claude Code**](#or-over-a-protocol) | A plugin: the tools and the skill together. |
-
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/showcase/pine-as-a-bot-openmausbot.gif" alt="The Computer as a bot: a question, a thumbs-up, the claim submitted, the desktop showing the result" width="100%"><br>
-      <sub><b>As a coworker:</b> a bot in the chat, with its own screen.</sub>
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/showcase/pine-as-a-tool-openmausbot.gif" alt="The Computer as a tool: a Claude bot hands the job over, relays the Computer's question and passes the answer back" width="100%"><br>
-      <sub><b>As a tool:</b> another agent hands the job over and relays the question.</sub>
-    </td>
-  </tr>
-</table>
+| **Claude Code** | The tools and the skill together, [installed from this repository](#or-over-a-protocol). |
 
 ## Or over a protocol
 
@@ -232,6 +213,19 @@ Any agent with an MCP setting:
 ```json
 { "mcpServers": { "pine-computer": { "command": "pine-computer", "args": ["mcp"] } } }
 ```
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/showcase/pine-as-a-bot-openmausbot.gif" alt="The Computer as a bot: a question, a thumbs-up, the claim submitted, the desktop showing the result" width="100%"><br>
+      <sub><b>As a coworker:</b> a bot in the chat, with its own screen.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/showcase/pine-as-a-tool-openmausbot.gif" alt="The Computer as a tool: a Claude bot hands the job over, relays the Computer's question and passes the answer back" width="100%"><br>
+      <sub><b>As a tool:</b> another agent hands the job over and relays the question.</sub>
+    </td>
+  </tr>
+</table>
 
 Through a protocol a job still streams its steps, asks its question, keeps its thread, shows its live
 desktop on a page of its own, brings files back and takes secrets by name. Skills, artifacts, parallel
