@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example: [starter, tavus-video-agent]
+        example: [starter, coworkers, tavus-video-agent]
     defaults:
       run:
         working-directory: examples/${{ matrix.example }}
