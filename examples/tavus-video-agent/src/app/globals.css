@@ -1,4 +1,3 @@
-@font-face { font-family: "Plein"; src: url("/fonts/Plein-Variable.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
 @font-face { font-family: "Azeret Mono"; src: url("/fonts/azeret-mono.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
 
 /* Pine Computer's ink ground: mint is only the agent's light, amber only a person's turn. */
@@ -6,7 +5,7 @@
   --bg: #111613; --bg-2: #171e1a; --bg-3: #1f2722; --rule: #2c342f; --rule-hi: #66726a;
   --fg: #eef0e8; --fg-2: #a9b2ab; --fg-3: #8a958d;
   --mint: #2fd892; --amber: #e8b45a; --red: #f08a75;
-  --sans: "Plein", ui-sans-serif, system-ui, sans-serif; --mono: "Azeret Mono", ui-monospace, Menlo, monospace;
+  --sans: ui-sans-serif, system-ui, sans-serif; --mono: "Azeret Mono", ui-monospace, Menlo, monospace;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
