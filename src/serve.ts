@@ -14,8 +14,8 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import express, { type Request, type RequestHandler, type Response } from "express";
 import { agentCard, PineExecutor } from "./a2a/agent.js";
 import { aguiHandler } from "./agui/agent.js";
-import { at, log } from "./core/home.js";
-import { inScope, local, scoped } from "./core/store.js";
+import { at } from "./core/home.js";
+import { store } from "./core/store.js";
 import { mcpServer } from "./mcp/server.js";
 import { handleViewer, hostViewer } from "./viewer/server.js";
 
@@ -25,10 +25,10 @@ const PORT = Number(process.env.PINE_SERVE_PORT ?? 4778);
 /** PINE_SERVE_TOKEN, or one made on first start and kept in serve.json. */
 async function token(): Promise<string> {
   if (process.env.PINE_SERVE_TOKEN) return process.env.PINE_SERVE_TOKEN;
-  const saved = await local.get<{ token: string }>(["serve"]);
+  const saved = await store().get<{ token: string }>(["serve"]);
   if (saved?.token) return saved.token;
   const fresh = randomBytes(24).toString("base64url");
-  await local.set(["serve"], { token: fresh });
+  await store().set(["serve"], { token: fresh });
   return fresh;
 }
 
@@ -37,29 +37,11 @@ const APP: User = { isAuthenticated: true, userName: "app" };
 
 export async function serve(): Promise<void> {
   const origin = (process.env.PINE_PUBLIC_URL ?? `http://${HOST === "0.0.0.0" ? "127.0.0.1" : HOST}:${PORT}`).replace(/\/+$/, "");
-  // PINE_HOSTED=1: one service for many projects, each by its own key. See src/hosted.
-  const many = process.env.PINE_HOSTED === "1" ? await (await import("./hosted/index.js")).hosted() : null;
-  const expected = Buffer.from(many ? "" : await token());
-  hostViewer(origin, many ?? undefined);
+  const expected = Buffer.from(await token());
+  hostViewer(origin);
 
-  const auth: RequestHandler = async (req, res, next) => {
-    const sent = req.get("authorization") ?? "";
-    const given = Buffer.from(/^Bearer (.+)$/i.exec(sent)?.[1] ?? "");
-    if (many) {
-      // Some chat apps send their key field as the whole header.
-      const key = given.toString() || sent.trim();
-      try {
-        const project = key ? await many.project(key) : null;
-        if (project) return inScope(project, () => {
-          res.locals.project = project.project;
-          next();
-        });
-      } catch (error) {
-        log("checking a project key failed:", error);
-        return void res.status(503).json({ error: "The key couldn't be checked just now. Try again." });
-      }
-      return void res.status(401).set("www-authenticate", 'Bearer realm="pine-computer"').json({ error: "A Pine Computer project key is required as the bearer token." });
-    }
+  const auth: RequestHandler = (req, res, next) => {
+    const given = Buffer.from(/^Bearer (.+)$/i.exec(req.get("authorization") ?? "")?.[1] ?? "");
     if (given.length === expected.length && timingSafeEqual(given, expected)) return next();
     res.status(401).set("www-authenticate", 'Bearer realm="pine-computer"').json({ error: "A bearer token is required: the one in ~/.pine-computer/serve.json, or PINE_SERVE_TOKEN." });
   };
@@ -79,7 +61,7 @@ export async function serve(): Promise<void> {
     legacyAgentCardRouter({ agentCardProvider: async () => card }),
     agentCardHandler({ agentCardProvider: async () => AgentCard.toJSON(card) as AgentCard }),
   );
-  app.use("/a2a", auth, jsonRpcHandler({ requestHandler: a2a, userBuilder: async (req) => (many ? { isAuthenticated: true, userName: String((req as Request).res?.locals.project) } : APP), legacyCompat: { enabled: true } }));
+  app.use("/a2a", auth, jsonRpcHandler({ requestHandler: a2a, userBuilder: async () => APP, legacyCompat: { enabled: true } }));
 
   // AG-UI: one POST per run, answered with a stream of events. A message may carry the person's files inline.
   app.post("/agui", auth, express.json({ limit: "32mb" }), aguiHandler());
@@ -88,13 +70,13 @@ export async function serve(): Promise<void> {
   const sessions = new Map<string, StreamableHTTPServerTransport>();
   app.post("/mcp", auth, express.json({ limit: "4mb" }), async (req: Request, res: Response) => {
     const id = req.get("mcp-session-id");
-    let transport = id ? sessions.get(scoped(id)) : undefined;
+    let transport = id ? sessions.get(id) : undefined;
     if (!transport) {
       if (id) return void res.status(404).json({ jsonrpc: "2.0", error: { code: -32001, message: "Session not found" }, id: null });
       if (!isInitializeRequest(req.body)) return void res.status(400).json({ jsonrpc: "2.0", error: { code: -32000, message: "Start with initialize" }, id: null });
       // A session belongs to the project that opened it: another project naming it finds nothing.
       let held = "";
-      const fresh = new StreamableHTTPServerTransport({ sessionIdGenerator: () => randomUUID(), onsessioninitialized: (sid) => void sessions.set((held = scoped(sid)), fresh) });
+      const fresh = new StreamableHTTPServerTransport({ sessionIdGenerator: () => randomUUID(), onsessioninitialized: (sid) => void sessions.set((held = sid), fresh) });
       fresh.onclose = () => void sessions.delete(held);
       await mcpServer({ hosted: true }).connect(fresh);
       transport = fresh;
@@ -102,7 +84,7 @@ export async function serve(): Promise<void> {
     await transport.handleRequest(req, res, req.body);
   });
   const existing: RequestHandler = async (req, res) => {
-    const transport = sessions.get(scoped(req.get("mcp-session-id") ?? ""));
+    const transport = sessions.get(req.get("mcp-session-id") ?? "");
     if (!transport) return void res.status(404).json({ jsonrpc: "2.0", error: { code: -32001, message: "Session not found" }, id: null });
     await transport.handleRequest(req, res);
   };
@@ -123,5 +105,5 @@ export async function serve(): Promise<void> {
   console.log(`  MCP   ${origin}/mcp`);
   console.log(`  A2A   ${origin}/${AGENT_CARD_PATH}`);
   console.log(`  AG-UI ${origin}/agui`);
-  console.log(many ? "  Token each caller's own project key" : `  Token PINE_SERVE_TOKEN, or the one in ${at("serve.json")}`);
+  console.log(`  Token PINE_SERVE_TOKEN, or the one in ${at("serve.json")}`);
 }

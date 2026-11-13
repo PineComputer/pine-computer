@@ -11,7 +11,6 @@ most of all an integration with an agent app we haven't covered.
 | `src/jobs.ts` | The jobs a tool-shaped way in has handed over, and how one reports. Shared by the MCP tools and the plugins. |
 | `src/mcp/`, `src/a2a/`, `src/acp/`, `src/agui/` | One thin adapter per protocol. No job logic lives here. |
 | `src/viewer/` | The live desktop pages. |
-| `src/hosted/` | One service for many projects, each by its own key. Loaded only with `PINE_HOSTED=1`; see `docs/hosting.md`. |
 | `skills/pine-computer/` | The hand-over skill: when and how an agent gives a job to a Computer. It describes the tools in `src/mcp`, so change them together. |
 | `skills/pine-computer-sdk/` | The build skill: how a coding agent builds Pine Computer into a product. It sends the agent to the guide inside the installed SDK, and never restates the API. |
 | `plugins/` | One folder per agent app that has its own plugin system. |
@@ -25,7 +24,7 @@ Node.js 22 or newer, and a Pine Computer key in `~/.pine-computer/env` (see the 
 ```sh
 npm install
 npm run build
-npm run check        # types, and two projects kept apart on one store (no key needed)
+npm run check        # types, and the records on disk (no key needed)
 node scripts/mcp-smoke.mjs "Open https://example.com and tell me its heading."
 node scripts/a2a-smoke.mjs "Open https://example.com and tell me its heading."
 node scripts/agui-smoke.mjs "Open https://example.com and tell me its heading."

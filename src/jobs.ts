@@ -4,7 +4,6 @@
 // picks it up.
 
 import path from "node:path";
-import { scoped } from "./core/store.js";
 import { readThread, resume, work, type Outcome, type ThreadRecord, type WorkOptions } from "./core/thread.js";
 import { fileUrl, hostedLinks, viewerUrl } from "./viewer/server.js";
 
@@ -30,7 +29,7 @@ export interface Where {
 // reconnects or reloads must still be found by the next wait.
 const jobs = new Map<string, Job>();
 
-export const jobOf = (threadId: string) => jobs.get(scoped(threadId));
+export const jobOf = (threadId: string) => jobs.get(threadId);
 export const running = (job: Job | undefined): job is Job => !!job && !job.outcome && !job.error;
 
 /**
@@ -67,7 +66,7 @@ function follow(thread: ThreadRecord, run: (options: Pick<WorkOptions, "on" | "s
     (outcome) => (job.outcome = outcome),
     (error: Error) => (job.error = error.message),
   );
-  jobs.set(scoped(thread.id), job);
+  jobs.set(thread.id, job);
   return job;
 }
 

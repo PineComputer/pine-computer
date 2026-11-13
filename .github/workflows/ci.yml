@@ -29,10 +29,6 @@ jobs:
       - run: npm run check
         env:
           PINE_COMPUTER_HOME: ${{ runner.temp }}/pine-computer
-      - name: The CLI loads without the optional Postgres driver
-        run: |
-          mv node_modules/pg "$RUNNER_TEMP/pg-aside"
-          node --input-type=module -e "await import('./dist/serve.js'); await import('./dist/mcp/server.js'); await import('./dist/acp/agent.js')"
       - name: Build the DeepSeek Harness plugin, which bundles the core
         working-directory: plugins/deepseek-harness
         run: npm ci && npm run build

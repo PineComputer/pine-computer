@@ -5,7 +5,7 @@
 
 import { Binding, Client, Credentials, NotFoundError, SandboxRetainedError, type Computer, type Session } from "@pinesandbox/computer";
 import { log } from "./home.js";
-import { scope, store, type Key } from "./store.js";
+import { store, type Key } from "./store.js";
 
 /** How long a Computer stays up with nothing to do. Waiting on a question isn't work. */
 export const IDLE_SECONDS = Number(process.env.PINE_IDLE_TIMEOUT_SECONDS ?? 1800);
@@ -31,8 +31,6 @@ export interface SessionRecord {
 
 let shared: Client | undefined;
 export function client(): Client {
-  const project = scope();
-  if (project) return project.client;
   if (!process.env.PINE_SANDBOX_API_KEY) throw new Error("Set PINE_SANDBOX_API_KEY (and PINE_SANDBOX_ENDPOINT) in the app's environment or in ~/.pine-computer/env.");
   return (shared ??= Client.fromEnv());
 }
