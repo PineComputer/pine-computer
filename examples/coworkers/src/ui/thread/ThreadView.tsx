@@ -63,7 +63,7 @@ export function ThreadView({ id }: { id: string }) {
         <header className="bar">
           <Avatar name={coworker.name} color={coworker.color} size="sm" />
           <h1>{coworker.name}</h1>
-          <span className="sub">{thread.title}</span>
+          <span className="sub title">{thread.title}</span>
           <span className="end">
             <button className="btn ghost sm icon" title="Close this thread" aria-label="Close this thread" onClick={() => setClosing(true)}>
               <Trash2 />

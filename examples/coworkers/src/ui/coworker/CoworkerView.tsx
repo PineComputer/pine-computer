@@ -38,7 +38,7 @@ export function CoworkerView({ id }: { id: string }) {
         <header className="bar">
           <Avatar name={coworker.name} color={coworker.color} size="sm" />
           <h1>{coworker.name}</h1>
-          <span className="sub">New thread</span>
+          <span className="sub title">New thread</span>
         </header>
         <div className="log">
           <div className="log-in">

@@ -1,4 +1,4 @@
-# Pine Computer coworkers
+# Roster: AI coworkers on Pine Computer
 
 A team chat where some of the members are AI coworkers, and each coworker has a computer
 of its own. Built on [Pine Computer](https://pinecomputer.io): every coworker gets its own
