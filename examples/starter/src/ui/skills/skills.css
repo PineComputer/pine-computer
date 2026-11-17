@@ -67,7 +67,7 @@
 .author-lines li { position: relative; padding-left: 14px; overflow-wrap: anywhere; }
 .author-lines li::before { content: ""; position: absolute; left: 0; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--fg-4); }
 .author-lines li[data-state="running"] { color: var(--fg); }
-.author-lines li[data-state="running"]::before { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+.author-lines li[data-state="running"]::before { background: var(--accent); }
 .author-lines li[data-state="failed"]::before { background: var(--bad); }
 .author-outcome { display: grid; gap: 8px; font-size: 13px; color: var(--fg-2); }
 .author-outcome ul { padding-left: 18px; display: grid; gap: 4px; }

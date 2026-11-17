@@ -1,4 +1,4 @@
-# Pine Computer starter
+# Tandem: the Pine Computer starter
 
 A complete product built on [Pine Computer](https://pinecomputer.io): an agent with its
 own computer that browses and works in a shell, signs in and stays signed in, learns your
